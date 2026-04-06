@@ -9,10 +9,12 @@ set -e
 
 PORT="${1:-8080}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WEBAPP_DIR="$PROJECT_DIR/target/webapp"
+WEBAPP_DIR="$PROJECT_DIR/teavm-react-demo/target/webapp"
 
 echo "=== Building teavm-react ==="
-mvn -f "$PROJECT_DIR/pom.xml" clean process-classes -q
+mvn -f "$PROJECT_DIR/pom.xml" clean install -N -q 2>/dev/null
+mvn -f "$PROJECT_DIR/pom.xml" install -pl teavm-react-core -q 2>/dev/null
+mvn -f "$PROJECT_DIR/teavm-react-demo/pom.xml" process-classes -q
 
 if [ ! -f "$WEBAPP_DIR/js/classes.js" ]; then
     echo "ERROR: Build did not produce classes.js"
