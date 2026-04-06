@@ -1,5 +1,7 @@
 package com.teavm.react.core;
 
+import com.teavm.react.events.ChangeEventHandler;
+import com.teavm.react.events.EventHandler;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 
@@ -90,6 +92,14 @@ public final class React {
 
     @JSBody(params = {"n"}, script = "return n;")
     public static native JSObject intToJS(int n);
+
+    // --- Event handler setters (must use @JSBody to preserve functor as raw JS function) ---
+
+    @JSBody(params = {"obj", "handler"}, script = "obj['onClick'] = handler;")
+    public static native void setOnClick(JSObject obj, EventHandler handler);
+
+    @JSBody(params = {"obj", "handler"}, script = "obj['onChange'] = handler;")
+    public static native void setOnChange(JSObject obj, ChangeEventHandler handler);
 
     // --- Fragment ---
 

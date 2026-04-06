@@ -109,12 +109,12 @@ public class DomBuilder {
     // --- Events ---
 
     public DomBuilder onClick(EventHandler handler) {
-        React.setProperty(props, "onClick", (JSObject) handler);
+        React.setOnClick(props, handler);
         return this;
     }
 
     public DomBuilder onChange(ChangeEventHandler handler) {
-        React.setProperty(props, "onChange", (JSObject) handler);
+        React.setOnChange(props, handler);
         return this;
     }
 

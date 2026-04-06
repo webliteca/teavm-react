@@ -40,6 +40,13 @@ public class StateHandle<T> {
     }
 
     /**
+     * Get the current state value as a boolean.
+     */
+    public boolean getBool() {
+        return unwrapBool(hookResult[0]);
+    }
+
+    /**
      * Set state to a new value. Triggers a React re-render.
      */
     public void set(T value) {
@@ -58,6 +65,13 @@ public class StateHandle<T> {
      */
     public void setString(String value) {
         callSetterString(hookResult[1], value);
+    }
+
+    /**
+     * Set state to a new boolean value.
+     */
+    public void setBool(boolean value) {
+        callSetterBool(hookResult[1], value);
     }
 
     /**
@@ -85,6 +99,9 @@ public class StateHandle<T> {
     @JSBody(params = {"setter", "value"}, script = "setter(value);")
     private static native void callSetterString(JSObject setter, String value);
 
+    @JSBody(params = {"setter", "value"}, script = "setter(value);")
+    private static native void callSetterBool(JSObject setter, boolean value);
+
     @JSBody(params = {"setter", "updater"}, script = "setter(function(prev) { return updater(prev); });")
     private static native void callSetterWithUpdater(JSObject setter, StateUpdater<?> updater);
 
@@ -99,6 +116,9 @@ public class StateHandle<T> {
 
     @JSBody(params = {"value"}, script = "return value|0;")
     private static native int unwrapInt(JSObject value);
+
+    @JSBody(params = {"value"}, script = "return !!value;")
+    private static native boolean unwrapBool(JSObject value);
 
     @JSBody(params = {"value"}, script = "return value;")
     private static native JSObject wrap(Object value);

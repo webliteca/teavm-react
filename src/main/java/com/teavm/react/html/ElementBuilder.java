@@ -49,12 +49,12 @@ public class ElementBuilder {
     // --- Event handlers ---
 
     public ElementBuilder onClick(EventHandler handler) {
-        React.setProperty(props, "onClick", (JSObject) handler);
+        React.setOnClick(props, handler);
         return this;
     }
 
     public ElementBuilder onChange(ChangeEventHandler handler) {
-        React.setProperty(props, "onChange", (JSObject) handler);
+        React.setOnChange(props, handler);
         return this;
     }
 

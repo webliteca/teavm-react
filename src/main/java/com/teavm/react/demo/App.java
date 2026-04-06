@@ -105,7 +105,7 @@ public class App {
         var running = Hooks.useState(true);
 
         Hooks.useEffect(() -> {
-            if (!running.get().equals(Boolean.TRUE)) return null;
+            if (!running.getBool()) return null;
             int interval = setInterval(() -> seconds.updateInt(s -> s + 1), 1000);
             return () -> clearInterval(interval);
         });
@@ -113,8 +113,8 @@ public class App {
         return div(
             h3("Timer (Functional)"),
             p("Elapsed: " + seconds.getInt() + "s"),
-            button(running.get().equals(Boolean.TRUE) ? "Pause" : "Resume")
-                .onClick(e -> running.set(!running.get().equals(Boolean.TRUE)))
+            button(running.getBool() ? "Pause" : "Resume")
+                .onClick(e -> running.setBool(!running.getBool()))
                 .build()
         );
     }, "TimerFunctional");
