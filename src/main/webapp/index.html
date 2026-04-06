@@ -77,5 +77,13 @@
 
     <!-- TeaVM-compiled JavaScript -->
     <script src="js/classes.js"></script>
+    <script>
+        // TeaVM exports main() but doesn't auto-invoke it
+        if (typeof main === 'function') {
+            main([]);
+        } else {
+            console.error('teavm-react: main() not found. Check classes.js loaded correctly.');
+        }
+    </script>
 </body>
 </html>
