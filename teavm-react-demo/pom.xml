@@ -85,4 +85,36 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Activated by dev.sh / DevServer for faster rebuilds -->
+        <profile>
+            <id>dev</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.teavm</groupId>
+                        <artifactId>teavm-maven-plugin</artifactId>
+                        <version>${teavm.version}</version>
+                        <executions>
+                            <execution>
+                                <goals><goal>compile</goal></goals>
+                                <phase>process-classes</phase>
+                                <configuration>
+                                    <mainClass>ca.weblite.teavmreact.demo.App</mainClass>
+                                    <targetType>JAVASCRIPT</targetType>
+                                    <minifying>false</minifying>
+                                    <debugInformationGenerated>false</debugInformationGenerated>
+                                    <sourceMapsGenerated>false</sourceMapsGenerated>
+                                    <incremental>true</incremental>
+                                    <stopOnErrors>true</stopOnErrors>
+                                    <targetDirectory>${project.build.directory}/webapp/js</targetDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
