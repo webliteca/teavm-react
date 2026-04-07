@@ -94,6 +94,24 @@ val counter = component {
 }
 ```
 
+## Live-Reload Development
+
+For an interactive development workflow with automatic recompilation and browser refresh:
+
+```bash
+./dev.sh
+# Open http://localhost:8080
+```
+
+Edit any source file in your preferred editor and save — the browser reloads automatically. The dev server optimizes rebuild times by:
+
+- **Incremental TeaVM compilation** — only re-analyzes changed classes
+- **Smart module detection** — skips rebuilding core/kotlin when only demo source changed
+- **Static fast-path** — HTML/CSS-only changes bypass Maven entirely (~instant)
+- **Maven Daemon support** — uses `mvnd` if available to eliminate JVM startup cost
+
+See the [Developer Guide](docs/developer-guide.adoc) for details on the dev server architecture and optimization options.
+
 ## Testing
 
 ```bash
