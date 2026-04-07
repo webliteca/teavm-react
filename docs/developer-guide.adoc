@@ -1,0 +1,1780 @@
+= teavm-react Developer Guide
+:author: WebLite
+:revnumber: 0.1.0-SNAPSHOT
+:toc: left
+:toclevels: 3
+:icons: font
+:source-highlighter: rouge
+:sectnums:
+:sectanchors:
+:idprefix:
+:idseparator: -
+
+== Introduction
+
+teavm-react is a library that lets you write https://react.dev[React 18] applications in *Java* and *Kotlin*, compiled to JavaScript via https://teavm.org[TeaVM].
+
+You get full React capabilities -- components, hooks, context, memo, refs -- with complete type safety, IDE support, and zero JavaScript knowledge required.
+
+=== Modules
+
+[cols="1,3"]
+|===
+|Module |Purpose
+
+|`teavm-react-core`
+|Java API bindings to React 18: hooks, HTML DSL, builder DSL, class-based components, events, context.
+
+|`teavm-react-kotlin`
+|Idiomatic Kotlin wrapper: delegated state properties, lambda-with-receiver HTML builder, `fc()` function components, coroutine integration.
+
+|`teavm-react-demo`
+|Kitchen-sink demo application exercising every library feature.
+|===
+
+=== Coordinates
+
+[source,xml]
+----
+<groupId>ca.weblite</groupId>
+<artifactId>teavm-react-core</artifactId>
+<version>0.1.0-SNAPSHOT</version>
+----
+
+=== React JS vs teavm-react
+
+[cols="1,1,1"]
+|===
+|React (JavaScript) |teavm-react (Java) |teavm-react (Kotlin)
+
+|`const [count, setCount] = useState(0)`
+|`StateHandle<Integer> count = Hooks.useState(0);`
+|`var count by state(0)`
+
+|`<div onClick={() => ...}>text</div>`
+|`Html.button("text").onClick(e -> ...).build()`
+|`button { +"text"; onClick { ... } }`
+
+|`function App(props) { return ... }`
+|`React.wrapComponent(App::render, "App")`
+|`val App = fc("App") { ... }`
+|===
+
+
+== Prerequisites
+
+* *JDK 21* (build-time; source/target compatibility is Java 11)
+* *Maven 3.8+*
+* A *modern web browser* (React 18 is loaded via CDN at runtime)
+* For Kotlin development: no extra tooling needed (the `kotlin-maven-plugin` is configured in the project)
+
+
+== Quick Start
+
+=== 1. Create the Java entry point
+
+[source,java]
+----
+package com.example;
+
+import ca.weblite.teavmreact.core.React;
+import ca.weblite.teavmreact.core.ReactDOM;
+import ca.weblite.teavmreact.core.ReactElement;
+import ca.weblite.teavmreact.hooks.Hooks;
+import ca.weblite.teavmreact.hooks.StateHandle;
+import org.teavm.jso.JSObject;
+import org.teavm.jso.dom.html.HTMLDocument;
+
+import static ca.weblite.teavmreact.html.Html.*;
+
+public class App {
+    public static void main(String[] args) {
+        var root = ReactDOM.createRoot(
+            HTMLDocument.current().getElementById("root"));
+        JSObject app = React.wrapComponent(App::render, "App");
+        root.render(React.createElement(app, null));
+    }
+
+    static ReactElement render(JSObject props) {
+        StateHandle<Integer> count = Hooks.useState(0);
+        return div(
+            h1("Hello teavm-react!"),
+            p("Count: " + count.getInt()),
+            button("Increment")
+                .onClick(e -> count.updateInt(n -> n + 1))
+                .build()
+        );
+    }
+}
+----
+
+=== 2. Create the HTML shell
+
+[source,html]
+----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My App</title>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- React 18 from CDN — MUST load before classes.js -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"
+            crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+            crossorigin></script>
+
+    <!-- TeaVM-compiled output -->
+    <script src="js/classes.js"></script>
+    <script>main([]);</script>
+</body>
+</html>
+----
+
+=== 3. Build and run
+
+[source,bash]
+----
+mvn clean install -N                    # install parent POM
+mvn install -pl teavm-react-core -DskipTests  # install core
+mvn process-classes -pl your-app        # TeaVM compilation
+----
+
+Or use the provided convenience script for the demo:
+
+[source,bash]
+----
+./run.sh           # builds and serves on http://localhost:8080
+./run.sh 3000      # custom port
+----
+
+
+== Project Structure
+
+[source]
+----
+teavm-react/
+├── pom.xml                          # Parent POM (dependency management)
+├── run.sh                           # Build & serve script
+├── teavm-react-core/                # Java API library
+│   └── src/main/java/ca/weblite/teavmreact/
+│       ├── core/                    # React, ReactDOM, ReactElement,
+│       │                            #   ReactRoot, ReactContext, RenderFunction
+│       ├── hooks/                   # Hooks, StateHandle, RefHandle,
+│       │                            #   EffectCallback
+│       ├── events/                  # EventHandler, ChangeEvent,
+│       │                            #   KeyboardEvent, MouseEvent, etc.
+│       ├── html/                    # Html, ElementBuilder, DomBuilder
+│       └── component/               # ReactView (class-based components)
+├── teavm-react-kotlin/              # Kotlin DSL library
+│   └── src/main/kotlin/ca/weblite/teavmreact/kotlin/
+│       ├── ComponentScope.kt        # fc() and ComponentScope
+│       ├── HtmlBuilder.kt          # Lambda-with-receiver HTML DSL
+│       ├── StateDelegate.kt        # Delegated state properties
+│       ├── RefDelegate.kt          # Delegated ref properties
+│       ├── EffectScope.kt          # Effect hooks with coroutines
+│       ├── FlowExtensions.kt       # Flow.collectAsState()
+│       ├── StyleBuilder.kt         # Type-safe inline styles
+│       ├── TypedContext.kt         # Typed React context
+│       ├── JsDispatcher.kt         # JS main-thread coroutine dispatcher
+│       └── Util.kt                 # depsToJsArray, encoding helpers
+└── teavm-react-demo/                # Kitchen-sink demo app
+    └── src/main/
+        ├── java/.../demo/App.java   # Demo entry point (727 lines)
+        └── webapp/
+            └── index.html           # HTML shell with React CDN
+----
+
+
+== Architecture
+
+=== Compilation Pipeline
+
+[source]
+----
+Java / Kotlin source
+       │
+       ▼
+  Maven compile (javac / kotlinc)
+       │
+       ▼
+  TeaVM compiler (teavm-maven-plugin)
+       │
+       ▼
+  classes.js (JavaScript output)
+       │
+       ▼
+  Browser loads index.html
+    ├── React 18 (from CDN)
+    └── classes.js
+       │
+       ▼
+  main([]) called → ReactDOM.createRoot() → React renders
+----
+
+=== The TeaVM JS Interop Layer
+
+teavm-react bridges Java and JavaScript using three TeaVM annotations:
+
+==== `@JSBody` -- Inline JavaScript
+
+Embeds raw JavaScript inside a Java method. This is how all React API calls are made.
+
+[source,java]
+----
+@JSBody(params = {"type", "props"}, script =
+    "return React.createElement(type, props);")
+public static native ReactElement createElement(String type, JSObject props);
+----
+
+==== `@JSFunctor` -- Java Lambdas as JS Functions
+
+Marks a functional interface so TeaVM passes its implementation as a raw JavaScript function (not a Java wrapper object).
+
+[source,java]
+----
+@JSFunctor
+public interface EventHandler extends JSObject {
+    void handleEvent(JSObject event);
+}
+----
+
+==== `@JSProperty` -- Interface Property Access
+
+Maps Java interface getter methods to JavaScript property access.
+
+[source,java]
+----
+public interface ChangeEvent extends JSObject {
+    @JSProperty
+    InputTarget getTarget();
+}
+----
+
+=== Critical Implementation Details
+
+[IMPORTANT]
+====
+*No ES6 spread in `@JSBody`*: TeaVM's `@JSBody` does not support the `...` spread operator. The library uses `.apply/.concat` as a workaround:
+
+[source,java]
+----
+// Instead of: React.createElement(type, props, ...children)
+@JSBody(params = {"type", "props", "children"}, script =
+    "return React.createElement.apply(null, " +
+    "[type, props].concat(Array.prototype.slice.call(children)));")
+----
+====
+
+[IMPORTANT]
+====
+*Event handlers must use dedicated setter methods*: Passing a `@JSFunctor` via a generic `setProperty` would wrap it in a Java object instead of passing the raw JS function. Always use the dedicated methods like `React.setOnClick()`:
+
+[source,java]
+----
+// CORRECT — raw JS function is passed
+React.setOnClick(props, handler);
+
+// WRONG — would wrap the function in a Java object
+React.setProperty(props, "onClick", handler);  // DO NOT DO THIS
+----
+====
+
+
+== Java API: Functional Components (Approach A)
+
+The functional approach mirrors idiomatic React.js. You define components as static methods, use `Html.*` static imports for elements, and call `Hooks.*` for state and effects.
+
+=== Defining a Component
+
+A component is any method matching the `RenderFunction` signature: it takes a `JSObject props` parameter and returns a `ReactElement`. Register it with `React.wrapComponent()`:
+
+[source,java]
+----
+import static ca.weblite.teavmreact.html.Html.*;
+
+JSObject myComponent = React.wrapComponent(App::myRender, "MyComponent");
+
+static ReactElement myRender(JSObject props) {
+    return div(
+        h1("Hello World"),
+        p("This is a functional component.")
+    );
+}
+----
+
+=== Using State
+
+[source,java]
+----
+static ReactElement counter(JSObject props) {
+    StateHandle<Integer> count = Hooks.useState(0);
+
+    return div(
+        h2("Count: " + count.getInt()),
+        button("Increment")
+            .onClick(e -> count.updateInt(n -> n + 1))
+            .build(),
+        button("Reset")
+            .onClick(e -> count.setInt(0))
+            .build()
+    );
+}
+----
+
+`StateHandle<T>` provides typed getters and setters:
+
+* `getInt()`, `setInt(int)`, `updateInt(IntUpdater)`
+* `getString()`, `setString(String)`, `updateString(StringUpdater)`
+* `getBool()`, `setBool(boolean)`
+* `getDouble()`, `setDouble(double)`
+* `get()`, `set(T)` for raw `JSObject` values
+
+=== Using Effects
+
+[source,java]
+----
+static ReactElement timer(JSObject props) {
+    StateHandle<Integer> seconds = Hooks.useState(0);
+
+    // Run once on mount (empty deps), clean up on unmount
+    Hooks.useEffect(() -> {
+        var id = setInterval(() -> seconds.updateInt(n -> n + 1), 1000);
+        return () -> clearInterval(id);  // cleanup
+    }, Hooks.deps());  // empty array = mount only
+
+    return p("Elapsed: " + seconds.getInt() + "s");
+}
+----
+
+* `Hooks.useEffect(callback)` -- runs after every render
+* `Hooks.useEffect(callback, Hooks.deps())` -- runs once on mount
+* `Hooks.useEffect(callback, Hooks.deps(dep1, dep2))` -- runs when deps change
+
+The callback returns a `VoidCallback` for cleanup, or `null` for no cleanup.
+
+=== Interactive Elements with ElementBuilder
+
+`Html.button()`, `Html.input()`, `Html.a()`, `Html.textarea()`, `Html.select()`, and `Html.img()` return an `ElementBuilder` for fluent prop chaining. Call `.build()` to finalize:
+
+[source,java]
+----
+// Button with click handler
+button("Click me")
+    .onClick(e -> doSomething())
+    .className("btn-primary")
+    .disabled(false)
+    .build()
+
+// Text input with controlled value
+input("text")
+    .value(name.getString())
+    .onChange(e -> name.setString(e.getTarget().getValue()))
+    .placeholder("Enter name")
+    .build()
+
+// Link
+a("Visit site")
+    .href("https://example.com")
+    .target("_blank")
+    .build()
+----
+
+=== Rendering Sub-Components
+
+[source,java]
+----
+// Register a component once (typically as a static field)
+static final JSObject counter = React.wrapComponent(App::counterRender, "Counter");
+
+// Render it as a child element
+static ReactElement app(JSObject props) {
+    return div(
+        h1("My App"),
+        Html.component(counter),            // no props
+        Html.component(counter, myProps)     // with props
+    );
+}
+----
+
+=== List Rendering
+
+[source,java]
+----
+List<String> items = List.of("Apple", "Banana", "Cherry");
+
+return ul(
+    Html.mapToElements(items, item -> li(item))
+);
+----
+
+=== Fragments
+
+Wrap elements in a `React.Fragment` (no extra DOM node):
+
+[source,java]
+----
+return fragment(
+    h1("Title"),
+    p("Paragraph 1"),
+    p("Paragraph 2")
+);
+----
+
+
+== Java API: Builder DSL (Approach B)
+
+The builder DSL provides a Java-idiomatic fluent pattern using `DomBuilder` inner classes. Each HTML element type has a dedicated class with a `create()` factory method.
+
+=== Basic Usage
+
+[source,java]
+----
+import ca.weblite.teavmreact.html.DomBuilder.*;
+
+ReactElement view = Div.create()
+    .className("container")
+    .child(H1.create().text("Hello World").build())
+    .child(P.create().text("Built with the builder DSL.").build())
+    .child(Button.create()
+        .text("Click me")
+        .onClick(e -> count.updateInt(n -> n + 1))
+        .build())
+    .build();
+----
+
+=== Available Builder Classes
+
+*Layout:* `Div`, `Span`, `Section`, `Article`, `Aside`, `Header`, `Footer`, `Main`, `Nav`
+
+*Headings:* `H1`, `H2`, `H3`, `H4`, `H5`, `H6`
+
+*Text:* `P`, `Pre`, `Code`, `Blockquote`, `Em`, `Strong`, `Small`
+
+*Lists:* `Ul`, `Ol`, `Li`, `Dl`, `Dt`, `Dd`
+
+*Table:* `Table`, `Thead`, `Tbody`, `Tfoot`, `Tr`, `Th`, `Td`, `Caption`
+
+*Form:* `Form`, `Fieldset`, `Legend`, `Label`, `Button`, `Input`, `Select`, `Textarea`
+
+*Media:* `A`, `Img`, `Figure`, `Figcaption`
+
+*Misc:* `Hr`, `Br`, `Details`, `Summary`
+
+=== Input Convenience Methods
+
+The `Input` class provides typed factory methods:
+
+[source,java]
+----
+Input.text()        // <input type="text">
+Input.password()    // <input type="password">
+Input.checkbox()    // <input type="checkbox">
+Input.number()      // <input type="number">
+----
+
+=== Chaining Methods
+
+All builders inherit from `DomBuilder`:
+
+* `.text(String)` -- set text content
+* `.child(ReactElement)` / `.child(DomBuilder)` / `.child(ElementBuilder)` -- add children
+* `.className(String)` / `.id(String)` / `.key(String|int)`
+* `.style(JSObject)` -- inline styles
+* `.onClick(EventHandler)` / `.onChange(ChangeEventHandler)` / `.onKeyDown(KeyboardEventHandler)`
+* `.onFocus(FocusEventHandler)` / `.onBlur(FocusEventHandler)` / `.onSubmit(SubmitEventHandler)`
+* `.value(String)` / `.placeholder(String)` / `.disabled(boolean)` / `.type(String)`
+* `.href(String)` / `.src(String)` / `.alt(String)`
+* `.prop(String, String|JSObject)` -- arbitrary property
+* `.forEach(List, mapper)` / `.forEachElement(List, mapper)` -- list iteration
+* `.build()` -- finalize the element
+
+=== Form Example
+
+[source,java]
+----
+static ReactElement formComponent(JSObject props) {
+    StateHandle<String> name = Hooks.useState("");
+    StateHandle<String> email = Hooks.useState("");
+
+    return Form.create()
+        .className("form")
+        .child(Div.create()
+            .child(Label.create().text("Name:").build())
+            .child(Input.text()
+                .value(name.getString())
+                .onChange(e -> name.setString(e.getTarget().getValue()))
+                .placeholder("Your name")
+                .build())
+            .build())
+        .child(Div.create()
+            .child(Label.create().text("Email:").build())
+            .child(Input.text()
+                .value(email.getString())
+                .onChange(e -> email.setString(e.getTarget().getValue()))
+                .placeholder("your@email.com")
+                .build())
+            .build())
+        .child(Button.create()
+            .text("Submit")
+            .onClick(e -> {
+                // handle submission
+            })
+            .build())
+        .build();
+}
+----
+
+
+== Java API: Class-Based Components (Approach C)
+
+The class-based approach is familiar to Swing/JavaFX developers. Extend `ReactView`, override `render()`, and declare state as field initializers.
+
+=== Basic Counter
+
+[source,java]
+----
+public class CounterView extends ReactView {
+    private final StateHandle<Integer> count = Hooks.useState(0);
+
+    @Override
+    protected ReactElement render() {
+        return Html.div(
+            Html.h2("Count: " + count.getInt()),
+            Html.button("Increment")
+                .onClick(e -> count.updateInt(n -> n + 1))
+                .build()
+        );
+    }
+}
+----
+
+=== Rendering a ReactView
+
+[source,java]
+----
+// As a ReactElement (most common)
+ReactView.view(CounterView::new, "CounterView")
+
+// Get the JSObject component for reuse
+JSObject comp = ReactView.toComponent(CounterView::new, "CounterView");
+Html.component(comp);
+----
+
+=== Lifecycle Methods
+
+Override `onMount()` and `onUnmount()` for setup and teardown:
+
+[source,java]
+----
+public class StopwatchView extends ReactView {
+    private final StateHandle<Integer> elapsed = Hooks.useState(0);
+    private final StateHandle<Boolean> running = Hooks.useState(false);
+
+    @Override
+    protected void onMount() {
+        // called once when the component mounts
+    }
+
+    @Override
+    protected void onUnmount() {
+        // called when the component unmounts — clean up resources
+    }
+
+    @Override
+    protected ReactElement render() {
+        return Html.div(
+            Html.h3("Stopwatch: " + elapsed.getInt() + "s"),
+            Html.button(running.getBool() ? "Stop" : "Start")
+                .onClick(e -> running.setBool(!running.getBool()))
+                .build()
+        );
+    }
+}
+----
+
+[WARNING]
+====
+`ReactView` subclasses are *re-instantiated on every render*. State hooks declared as field initializers are called fresh each render, which is how React hooks work. Do not store mutable state outside of hooks.
+====
+
+=== ViewFactory Interface
+
+`ReactView.toComponent()` and `ReactView.view()` accept a `ViewFactory`:
+
+[source,java]
+----
+@FunctionalInterface
+public interface ViewFactory {
+    ReactView create();
+}
+----
+
+Use method references: `CounterView::new`, `StopwatchView::new`.
+
+
+== Kotlin DSL
+
+The `teavm-react-kotlin` module provides an idiomatic Kotlin experience using delegated properties, lambda-with-receiver builders, and coroutine integration.
+
+=== Function Components with `fc()`
+
+Define components using `fc()`, which provides a `ComponentScope` receiver:
+
+[source,kotlin]
+----
+val Counter = fc("Counter") {
+    var count by state(0)
+
+    div {
+        h2 { +"Count: $count" }
+        button {
+            +"Increment"
+            onClick { count++ }
+        }
+    }
+}
+----
+
+Render at the app root:
+
+[source,kotlin]
+----
+fun main(args: Array<String>) {
+    val root = ReactDOM.createRoot(
+        HTMLDocument.current().getElementById("root"))
+    root.render(component(Counter))
+}
+----
+
+=== Delegated State Properties
+
+State is declared using Kotlin's `by` delegation. Assignments trigger React re-renders:
+
+[source,kotlin]
+----
+var count by state(0)           // IntStateDelegate
+var name by state("Alice")      // StringStateDelegate
+var active by state(true)       // BooleanStateDelegate
+var price by state(9.99)        // DoubleStateDelegate
+var obj by state(null as JSObject?)  // JsObjectStateDelegate
+var items by stateList("a", "b")    // StringListStateDelegate
+----
+
+Functional updates are available via the delegate's `update()` method:
+
+[source,kotlin]
+----
+val countDelegate = state(0)
+var count by countDelegate
+
+// Later, functional update:
+countDelegate.update(StateHandle.IntUpdater { prev -> prev + 1 })
+----
+
+=== HTML Builder DSL
+
+The `HtmlBuilder` uses Kotlin's lambda-with-receiver pattern for a natural HTML-like syntax:
+
+[source,kotlin]
+----
+div {
+    className("container")
+    h1 { +"Welcome" }
+    p { +"Some text content" }
+
+    ul {
+        li { +"Item 1" }
+        li { +"Item 2" }
+        li(key = "special") { +"Item 3" }
+    }
+
+    button {
+        +"Click me"
+        className("btn")
+        onClick { handleClick() }
+    }
+
+    input("text") {
+        value(name)
+        placeholder("Enter name")
+        onChange { e -> name = e.getTarget().getValue() }
+    }
+}
+----
+
+==== Text and Element Operators
+
+[source,kotlin]
+----
++"Hello"              // add text node (String.unaryPlus)
++someElement          // add child ReactElement
++SomeComponent        // render a JSObject component as child
++listOfElements       // splice a List<ReactElement>
+----
+
+==== Conditional Rendering
+
+[source,kotlin]
+----
+div {
+    show(isLoggedIn) {
+        p { +"Welcome back!" }
+    }
+}
+----
+
+==== Available Elements
+
+All standard HTML elements are available as nested builder functions: `div`, `span`, `section`, `article`, `aside`, `header`, `footer`, `main`, `nav`, `h1`-`h6`, `p`, `pre`, `code`, `blockquote`, `em`, `strong`, `small`, `mark`, `sub`, `sup`, `label`, `ul`, `ol`, `li`, `dl`, `dt`, `dd`, `table`, `thead`, `tbody`, `tfoot`, `tr`, `th`, `td`, `caption`, `form`, `fieldset`, `legend`, `button`, `input`, `textarea`, `select`, `option`, `a`, `img`, `figure`, `figcaption`, `video`, `audio`, `source`, `details`, `summary`, `hr`, `br`.
+
+==== Common Attributes
+
+[source,kotlin]
+----
+className("my-class")
+id("my-id")
+key("unique-key")
+title("tooltip text")
+tabIndex(0)
+role("button")
+draggable(true)
+hidden(false)
+prop("data-custom", "value")  // arbitrary props
+----
+
+==== Event Handlers
+
+[source,kotlin]
+----
+onClick { event -> ... }
+onChange { event -> name = event.getTarget().getValue() }
+onKeyDown { event -> if (event.getKey() == "Enter") submit() }
+onKeyUp { event -> ... }
+onFocus { event -> ... }
+onBlur { event -> ... }
+onSubmit { event -> ... }
+onMouseDown { event -> ... }
+onMouseUp { event -> ... }
+onMouseEnter { event -> ... }
+onMouseLeave { event -> ... }
+----
+
+==== Form Attributes
+
+[source,kotlin]
+----
+value("text")
+defaultValue("initial")
+placeholder("hint")
+disabled(true)
+readOnly(true)
+checked(false)
+type("password")
+name("field-name")
+htmlFor("input-id")
+autoFocus(true)
+maxLength(100)
+rows(5)
+cols(40)
+href("https://example.com")
+src("/image.png")
+alt("description")
+target("_blank")
+----
+
+=== Type-Safe Inline Styles
+
+Use `StyleBuilder` for type-safe CSS-in-JS:
+
+[source,kotlin]
+----
+div {
+    style {
+        backgroundColor = "#282c34"
+        color = "white"
+        padding = "20px"
+        display = "flex"
+        flexDirection = "column"
+        gap = "10px"
+        borderRadius = "8px"
+    }
+    +"Styled content"
+}
+----
+
+Or use the `css()` shorthand to parse a CSS string:
+
+[source,kotlin]
+----
+div {
+    css("background-color: #282c34; color: white; padding: 20px")
+    +"Styled content"
+}
+----
+
+`StyleBuilder` provides typed properties for layout, flexbox, grid, box model, borders, colors, typography, and effects.
+
+=== Ref Delegates
+
+[source,kotlin]
+----
+var myRef by ref()              // JSObject ref (RefDelegate)
+var renderCount by refInt(0)    // Int ref (IntRefDelegate)
+var label by refString("")      // String ref (StringRefDelegate)
+----
+
+Refs persist across renders without triggering re-renders (same as React's `useRef`).
+
+=== Memo
+
+Memoize computed values that only recalculate when dependencies change:
+
+[source,kotlin]
+----
+val filtered = memo(items, filter) {
+    items.filter { it.contains(filter) }
+}
+----
+
+=== Effects and Coroutines
+
+The `effect()` function wraps React's `useEffect` and provides a `CoroutineScope`:
+
+[source,kotlin]
+----
+// Run after every render
+effect {
+    println("rendered")
+}
+
+// Run once on mount (pass no dependencies explicitly)
+effectOnce {
+    println("mounted")
+    onCleanup { println("unmounting") }
+}
+
+// Run when dependencies change
+effect(userId) {
+    // re-runs when userId changes
+    onCleanup { /* cleanup previous */ }
+}
+
+// Launch coroutines inside effects
+effect {
+    val job = launch {
+        while (isActive) {
+            delay(1000)
+            ticks++
+        }
+    }
+    onCleanup { job.cancel() }
+}
+----
+
+==== `launchedEffect` (Compose-inspired)
+
+Automatically launches and cancels a coroutine:
+
+[source,kotlin]
+----
+launchedEffect {
+    val data = api.fetchItems()  // suspend call
+    items = data
+}
+
+launchedEffect(userId) {
+    profile = api.fetchUser(userId)  // re-launches when userId changes
+}
+----
+
+=== Flow Integration
+
+Collect a Kotlin `Flow` into React state:
+
+[source,kotlin]
+----
+val seconds by flow {
+    var t = 0
+    while (true) {
+        emit(t++)
+        delay(1000)
+    }
+}.collectAsState(initial = 0)
+----
+
+`collectAsState` is available for `Flow<Int>`, `Flow<String>`, `Flow<Boolean>`, and `Flow<Double>`. The flow starts collecting on mount and is automatically cancelled on unmount.
+
+==== `produceState` (Compose-inspired)
+
+[source,kotlin]
+----
+val profile by produceState("loading", userId) {
+    value = api.fetchUser(userId).name
+}
+----
+
+=== Typed Context
+
+Type-safe React context without manual JSObject casting:
+
+[source,kotlin]
+----
+// Create typed contexts
+val ThemeContext = createStringContext("light")
+val CountContext = createIntContext(0)
+val AuthContext = createBoolContext(false)
+
+// Provide a value
+ThemeContext.provide("dark") {
+    +App
+}
+
+// Consume in a component
+val App = fc("App") {
+    val theme: String = useContext(ThemeContext)
+    div {
+        +"Current theme: $theme"
+    }
+}
+----
+
+Factory functions: `createStringContext()`, `createIntContext()`, `createBoolContext()`, `createContext()` (for `JSObject?`).
+
+=== Props Access
+
+Read props passed to a component:
+
+[source,kotlin]
+----
+val Greeting = fc("Greeting") {
+    val name = propString("name")
+    val age = propInt("age")
+    val active = propBool("active")
+    val data = propObj("data")
+
+    p { +"Hello, $name! Age: $age" }
+}
+----
+
+=== Fragments
+
+[source,kotlin]
+----
+fragment {
+    h1 { +"Title" }
+    p { +"No wrapper element" }
+}
+
+
+== HTML Elements Reference
+
+=== Functional DSL (`Html.*`)
+
+All methods are static on `ca.weblite.teavmreact.html.Html`. Each element has two overloads: `element(String text)` and `element(ReactElement... children)`.
+
+[cols="1,3"]
+|===
+|Category |Elements
+
+|Layout
+|`div`, `span`, `section`, `article`, `aside`, `header`, `footer`, `main`, `nav`
+
+|Headings
+|`h1`, `h2`, `h3`, `h4`, `h5`, `h6`
+
+|Text
+|`p`, `pre`, `code`, `blockquote`, `em`, `strong`, `small`, `sub`, `sup`, `mark`
+
+|Lists
+|`ul`, `ol`, `li`, `dl`, `dt`, `dd`
+
+|Table
+|`table`, `thead`, `tbody`, `tfoot`, `tr`, `th`, `td`, `caption`
+
+|Form containers
+|`form`, `fieldset`, `legend`, `label`
+
+|Media
+|`figure`, `figcaption`
+
+|Void
+|`hr()`, `br()` (no arguments)
+
+|Details
+|`details`, `summary`
+|===
+
+=== Interactive Elements (return `ElementBuilder`)
+
+These return an `ElementBuilder` for fluent prop chaining. Call `.build()` to finalize.
+
+[cols="1,2,2"]
+|===
+|Method |Signature |Notes
+
+|`button`
+|`button(String text)`
+|Button with text label
+
+|`input`
+|`input(String type)`
+|Input with type attribute
+
+|`a`
+|`a(String text)`
+|Anchor with text
+
+|`textarea`
+|`textarea()`
+|Textarea element
+
+|`select`
+|`select()`
+|Select dropdown
+
+|`img`
+|`img()`
+|Image (chain `.src()`, `.alt()`)
+|===
+
+=== `ElementBuilder` Methods
+
+[cols="1,2"]
+|===
+|Method |Description
+
+|`.className(String)`
+|Set CSS class
+
+|`.id(String)` / `.key(String\|int)`
+|Set id or React key
+
+|`.onClick(EventHandler)`
+|Click handler
+
+|`.onChange(ChangeEventHandler)`
+|Change handler
+
+|`.onKeyDown(KeyboardEventHandler)` / `.onKeyUp(...)`
+|Keyboard handlers
+
+|`.onFocus(FocusEventHandler)` / `.onBlur(...)`
+|Focus handlers
+
+|`.onSubmit(SubmitEventHandler)`
+|Form submit handler
+
+|`.onMouseDown(...)` / `.onMouseUp(...)` / `.onMouseEnter(...)` / `.onMouseLeave(...)`
+|Mouse handlers
+
+|`.value(String)` / `.placeholder(String)`
+|Input value and placeholder
+
+|`.disabled(boolean)` / `.checked(boolean)` / `.readOnly(boolean)`
+|Input state attributes
+
+|`.type(String)` / `.name(String)` / `.htmlFor(String)`
+|Form attributes
+
+|`.href(String)` / `.src(String)` / `.alt(String)` / `.target(String)`
+|Link and media attributes
+
+|`.rows(int)` / `.cols(int)` / `.maxLength(int)` / `.minLength(int)`
+|Textarea/input sizing
+
+|`.tabIndex(int)`
+|Tab order
+
+|`.style(JSObject)`
+|Inline styles
+
+|`.prop(String, String\|int\|boolean\|JSObject)`
+|Arbitrary property
+
+|`.build()` / `.build(ReactElement...)`
+|Finalize element
+|===
+
+=== Utility Methods
+
+* `Html.text(String)` -- create a plain text node
+* `Html.component(JSObject)` -- render a component with no props
+* `Html.component(JSObject, JSObject)` -- render a component with props
+* `Html.fragment(ReactElement...)` -- wrap in `React.Fragment`
+* `Html.mapToElements(List<T>, Function<T, ReactElement>)` -- map a list to elements
+
+
+== Hooks Reference
+
+All hooks are static methods on `ca.weblite.teavmreact.hooks.Hooks`. They *must* be called during a component render (inside a `RenderFunction`). Calling them outside a render violates React's Rules of Hooks.
+
+=== `useState`
+
+[cols="2,2"]
+|===
+|Signature |Returns
+
+|`useState(int initial)`
+|`StateHandle<Integer>`
+
+|`useState(String initial)`
+|`StateHandle<String>`
+
+|`useState(boolean initial)`
+|`StateHandle<Boolean>`
+
+|`useState(double initial)`
+|`StateHandle<Double>`
+
+|`useState(JSObject initial)`
+|`StateHandle<JSObject>`
+|===
+
+==== `StateHandle<T>` API
+
+*Getters:*
+
+* `getInt()` -- current value as `int`
+* `getString()` -- current value as `String`
+* `getBool()` -- current value as `boolean`
+* `getDouble()` -- current value as `double`
+* `get()` -- raw value as `T`
+
+*Setters:*
+
+* `setInt(int)`, `setString(String)`, `setBool(boolean)`, `setDouble(double)`, `set(T)`
+
+*Functional updates:*
+
+* `updateInt(IntUpdater)` -- `setter(prev => updater(prev))`
+* `updateString(StringUpdater)` -- `setter(prev => updater(prev))`
+
+[source,java]
+----
+// IntUpdater and StringUpdater are @JSFunctor interfaces:
+@JSFunctor
+public interface IntUpdater extends JSObject {
+    int update(int prev);
+}
+
+@JSFunctor
+public interface StringUpdater extends JSObject {
+    String update(String prev);
+}
+----
+
+=== `useEffect`
+
+[cols="2,3"]
+|===
+|Signature |Behavior
+
+|`useEffect(EffectCallback effect)`
+|Runs after every render
+
+|`useEffect(EffectCallback effect, JSObject[] deps)`
+|Runs when `deps` change; pass `deps()` for mount-only
+|===
+
+`EffectCallback` is a `@JSFunctor` that returns a `VoidCallback` (cleanup) or `null`:
+
+[source,java]
+----
+Hooks.useEffect(() -> {
+    // setup
+    return () -> { /* cleanup */ };
+}, Hooks.deps());
+----
+
+=== `useRef`
+
+[cols="2,2"]
+|===
+|Signature |Returns
+
+|`useRef(JSObject initial)`
+|`RefHandle`
+
+|`useRefInt(int initial)`
+|`RefHandle`
+
+|`useRefString(String initial)`
+|`RefHandle`
+|===
+
+==== `RefHandle` API
+
+* `raw()` -- underlying JS ref object (pass to element's `ref` prop)
+* `getCurrent()` -- current value as `JSObject`
+* `setCurrent(JSObject)` -- set current value
+* `getCurrentString()` -- current value as `String`
+* `getCurrentInt()` -- current value as `int`
+
+=== `useMemo`
+
+[source,java]
+----
+JSObject result = Hooks.useMemo(() -> expensiveComputation(), Hooks.deps(dep1, dep2));
+----
+
+The `MemoFactory` interface:
+
+[source,java]
+----
+@JSFunctor
+public interface MemoFactory extends JSObject {
+    JSObject create();
+}
+----
+
+=== `useCallback`
+
+[source,java]
+----
+JSObject memoizedCallback = Hooks.useCallback(callbackObj, Hooks.deps(dep1));
+----
+
+Memoizes a JS function reference so it doesn't change between renders unless deps change.
+
+=== `useReducer`
+
+[source,java]
+----
+JSObject[] result = Hooks.useReducer(reducerFn, initialState);
+// result[0] = current state
+// result[1] = dispatch function
+----
+
+The reducer is a JS function `(state, action) => newState`.
+
+=== `useContext`
+
+[source,java]
+----
+JSObject value = Hooks.useContext(context.jsContext());
+----
+
+Reads the current value from a React context object. See <<context-api>> for details.
+
+=== `deps()` Helper
+
+[source,java]
+----
+Hooks.deps()                    // empty array [] — mount only
+Hooks.deps(dep1, dep2, dep3)    // specific dependencies
+----
+
+
+== Events Reference
+
+All event handler interfaces are in `ca.weblite.teavmreact.events` and are annotated with `@JSFunctor`.
+
+=== Handler Interfaces
+
+[cols="2,2,2"]
+|===
+|Interface |Method |Used For
+
+|`EventHandler`
+|`handleEvent(JSObject event)`
+|`onClick`, `onMouseDown`, `onMouseUp`, `onMouseEnter`, `onMouseLeave`
+
+|`ChangeEventHandler`
+|`handleEvent(ChangeEvent event)`
+|`onChange`
+
+|`KeyboardEventHandler`
+|`handleEvent(KeyboardEvent event)`
+|`onKeyDown`, `onKeyUp`
+
+|`FocusEventHandler`
+|`handleEvent(JSObject event)`
+|`onFocus`, `onBlur`
+
+|`SubmitEventHandler`
+|`handleEvent(JSObject event)`
+|`onSubmit`
+|===
+
+=== `ChangeEvent`
+
+[source,java]
+----
+public interface ChangeEvent extends JSObject {
+    @JSProperty InputTarget getTarget();
+
+    interface InputTarget extends JSObject {
+        @JSProperty String getValue();
+        @JSProperty boolean getChecked();
+        @JSProperty String getType();
+    }
+}
+----
+
+Usage:
+
+[source,java]
+----
+input("text")
+    .onChange(e -> name.setString(e.getTarget().getValue()))
+    .build()
+
+// Checkbox
+input("checkbox")
+    .onChange(e -> active.setBool(e.getTarget().getChecked()))
+    .build()
+----
+
+=== `KeyboardEvent`
+
+[source,java]
+----
+public interface KeyboardEvent extends JSObject {
+    @JSProperty String getKey();       // "Enter", "Escape", "a", etc.
+    @JSProperty String getCode();      // "KeyA", "Enter", etc.
+    @JSProperty boolean getAltKey();
+    @JSProperty boolean getCtrlKey();
+    @JSProperty boolean getMetaKey();
+    @JSProperty boolean getShiftKey();
+    @JSProperty boolean getRepeat();
+    @JSProperty JSObject getTarget();
+}
+----
+
+=== `MouseEvent`
+
+[source,java]
+----
+public interface MouseEvent extends JSObject {
+    @JSProperty double getClientX();
+    @JSProperty double getClientY();
+    @JSProperty double getPageX();
+    @JSProperty double getPageY();
+    @JSProperty int getButton();       // 0=left, 1=middle, 2=right
+    @JSProperty boolean getAltKey();
+    @JSProperty boolean getCtrlKey();
+    @JSProperty boolean getMetaKey();
+    @JSProperty boolean getShiftKey();
+    @JSProperty JSObject getTarget();
+}
+----
+
+
+[[context-api]]
+== Context API
+
+React Context allows passing data through the component tree without prop drilling.
+
+=== Java API
+
+[source,java]
+----
+// Create a context with a default value
+static final ReactContext THEME_CTX =
+    ReactContext.create(React.stringToJS("light"));
+
+// Provide a value to descendants
+THEME_CTX.provide(React.stringToJS("dark"),
+    childElement1,
+    childElement2
+);
+
+// Consume in a component
+static ReactElement themeConsumer(JSObject props) {
+    JSObject themeValue = Hooks.useContext(THEME_CTX.jsContext());
+    String theme = React.jsToString(themeValue);
+    return Html.p("Current theme: " + theme);
+}
+----
+
+==== `ReactContext` API
+
+* `ReactContext.create()` -- create with no default value
+* `ReactContext.create(JSObject defaultValue)` -- create with default
+* `.jsContext()` -- get the underlying JS context object
+* `.provider()` -- get the Provider component
+* `.provide(JSObject value, ReactElement... children)` -- convenience wrapper
+
+=== Kotlin Typed Context
+
+See <<typed-context>> in the Kotlin DSL section. The Kotlin module provides type-safe wrappers:
+
+[source,kotlin]
+----
+val ThemeCtx = createStringContext("light")
+
+// Provide
+ThemeCtx.provide("dark") {
+    +App
+}
+
+// Consume
+val theme: String = useContext(ThemeCtx)
+----
+
+
+== React.memo
+
+`React.memo()` wraps a component for shallow-prop comparison, skipping re-renders when props haven't changed:
+
+[source,java]
+----
+JSObject myComponent = React.wrapComponent(App::expensiveRender, "Expensive");
+JSObject memoized = React.memo(myComponent);
+
+// Use the memoized version
+Html.component(memoized);
+----
+
+This is equivalent to `React.memo(Component)` in JavaScript.
+
+
+== Building and Running
+
+=== Maven Commands
+
+[source,bash]
+----
+mvn clean install                        <1>
+mvn clean install -N                     <2>
+mvn install -pl teavm-react-core         <3>
+mvn install -pl teavm-react-core,teavm-react-kotlin  <4>
+mvn process-classes -pl teavm-react-demo <5>
+mvn test -pl teavm-react-core,teavm-react-kotlin     <6>
+----
+<1> Build the entire project
+<2> Install parent POM only (needed before building individual modules)
+<3> Build core library
+<4> Build core + kotlin
+<5> Run TeaVM compilation for the demo
+<6> Run unit tests
+
+Integration tests (TeaVM compilation + output verification):
+
+[source,bash]
+----
+mvn install -N && \
+mvn install -pl teavm-react-core,teavm-react-kotlin -DskipTests && \
+mvn process-classes test -pl teavm-react-demo
+----
+
+=== `run.sh` Script
+
+The project includes a convenience script that builds and serves the demo:
+
+[source,bash]
+----
+./run.sh           # Build and serve on http://localhost:8080
+./run.sh 3000      # Custom port
+----
+
+The script:
+
+1. Installs the parent POM
+2. Installs `teavm-react-core`
+3. Runs TeaVM compilation on the demo module
+4. Verifies `classes.js` was produced
+5. Serves `teavm-react-demo/target/webapp/` via Python's HTTP server
+
+=== TeaVM Maven Plugin Configuration
+
+The TeaVM plugin compiles Java bytecode to JavaScript. Configuration from the demo module:
+
+[source,xml]
+----
+<plugin>
+    <groupId>org.teavm</groupId>
+    <artifactId>teavm-maven-plugin</artifactId>
+    <version>${teavm.version}</version>
+    <executions>
+        <execution>
+            <goals><goal>compile</goal></goals>
+            <phase>process-classes</phase>
+            <configuration>
+                <mainClass>com.example.App</mainClass>
+                <targetType>JAVASCRIPT</targetType>
+                <minifying>false</minifying>
+                <debugInformationGenerated>true</debugInformationGenerated>
+                <sourceMapsGenerated>true</sourceMapsGenerated>
+                <stopOnErrors>true</stopOnErrors>
+                <targetDirectory>
+                    ${project.build.directory}/webapp/js
+                </targetDirectory>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+----
+
+Key settings:
+
+* `mainClass` -- your application's entry point (must have `public static void main(String[])`)
+* `targetType` -- always `JAVASCRIPT` for web apps
+* `targetDirectory` -- where `classes.js` is written
+* `minifying` -- set to `true` for production (smaller output, no debug names)
+* `debugInformationGenerated` / `sourceMapsGenerated` -- enable for development
+
+=== HTML Shell Pattern
+
+Your `index.html` must:
+
+1. Load React 18 and ReactDOM 18 via `<script>` tags *before* `classes.js`
+2. Include a `<div id="root"></div>` mount point
+3. Load the TeaVM-compiled `classes.js`
+4. Call `main([])` to start the application
+
+[source,html]
+----
+<script src="https://unpkg.com/react@18/umd/react.development.js"
+        crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+        crossorigin></script>
+<div id="root"></div>
+<script src="js/classes.js"></script>
+<script>main([]);</script>
+----
+
+For production, use the `.production.min.js` variants of the React CDN URLs.
+
+
+== Maven Dependency Setup
+
+To use teavm-react in your own project, add these dependencies:
+
+=== Core (Java only)
+
+[source,xml]
+----
+<dependencies>
+    <!-- teavm-react core library -->
+    <dependency>
+        <groupId>ca.weblite</groupId>
+        <artifactId>teavm-react-core</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </dependency>
+
+    <!-- TeaVM standard library (required) -->
+    <dependency>
+        <groupId>org.teavm</groupId>
+        <artifactId>teavm-classlib</artifactId>
+        <version>0.13.1</version>
+    </dependency>
+    <dependency>
+        <groupId>org.teavm</groupId>
+        <artifactId>teavm-jso</artifactId>
+        <version>0.13.1</version>
+    </dependency>
+    <dependency>
+        <groupId>org.teavm</groupId>
+        <artifactId>teavm-jso-apis</artifactId>
+        <version>0.13.1</version>
+    </dependency>
+</dependencies>
+----
+
+=== With Kotlin DSL
+
+[source,xml]
+----
+<dependency>
+    <groupId>ca.weblite</groupId>
+    <artifactId>teavm-react-kotlin</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+
+<!-- Kotlin standard library -->
+<dependency>
+    <groupId>org.jetbrains.kotlin</groupId>
+    <artifactId>kotlin-stdlib</artifactId>
+    <version>1.9.25</version>
+</dependency>
+
+<!-- Coroutines (for effects, flows) -->
+<dependency>
+    <groupId>org.jetbrains.kotlinx</groupId>
+    <artifactId>kotlinx-coroutines-core</artifactId>
+    <version>1.8.1</version>
+</dependency>
+----
+
+Add the Kotlin Maven plugin for compilation:
+
+[source,xml]
+----
+<plugin>
+    <groupId>org.jetbrains.kotlin</groupId>
+    <artifactId>kotlin-maven-plugin</artifactId>
+    <version>1.9.25</version>
+    <executions>
+        <execution>
+            <id>compile</id>
+            <goals><goal>compile</goal></goals>
+            <configuration>
+                <sourceDirs>
+                    <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
+                </sourceDirs>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+----
+
+=== TeaVM Plugin
+
+Add the TeaVM Maven plugin to your build (see <<teavm-maven-plugin-configuration>> for full configuration).
+
+=== Java Version
+
+The project targets Java 11 source/target compatibility but requires JDK 21 for building:
+
+[source,xml]
+----
+<properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+</properties>
+----
+
+
+== Testing
+
+=== Running Tests
+
+Unit tests (core + kotlin modules):
+
+[source,bash]
+----
+mvn test -pl teavm-react-core,teavm-react-kotlin
+----
+
+Integration tests (TeaVM compilation + output verification):
+
+[source,bash]
+----
+mvn install -N
+mvn install -pl teavm-react-core,teavm-react-kotlin -DskipTests
+mvn process-classes test -pl teavm-react-demo
+----
+
+=== Test Patterns
+
+The project uses JUnit 5. Existing tests include:
+
+* *API surface tests* -- verify that key classes and methods exist and are accessible
+* *TeaVM compilation integration test* -- verifies that `classes.js` is produced and has reasonable size
+* *Kotlin unit tests* -- CSS parsing (`CssParsingTest`), string list encoding (`StringListEncodingTest`), API surface (`ApiSurfaceTest`)
+
+=== CI Pipeline
+
+The GitHub Actions CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to `main`:
+
+1. Checks out code
+2. Sets up JDK 21 (Temurin)
+3. Compiles all modules
+4. Runs unit tests (core + kotlin)
+5. Runs integration tests (TeaVM compilation + verification)
+
+
+== Troubleshooting
+
+=== "React is not defined"
+
+React must be loaded via `<script>` tags *before* `classes.js`. Ensure your HTML loads the React and ReactDOM CDN scripts first.
+
+=== "classes.js not produced"
+
+* Verify the `mainClass` in the TeaVM plugin configuration matches your entry point
+* Ensure all dependencies are installed (`mvn install` on parent and core modules first)
+* Check for compilation errors in the Maven output
+
+=== "No ES6 spread in @JSBody"
+
+TeaVM's `@JSBody` annotation does not support ES6 syntax including the spread operator (`...`). Use `.apply/.concat` instead:
+
+[source,javascript]
+----
+// Instead of: React.createElement(type, props, ...children)
+React.createElement.apply(null, [type, props].concat(children))
+----
+
+=== "Event handler not firing"
+
+Event handlers must be set using the dedicated `React.setOn*` methods, not `React.setProperty`. If you're building custom components, use `ElementBuilder` or `DomBuilder` which handle this correctly. See <<critical-implementation-details>>.
+
+=== "Rules of Hooks violation"
+
+All hooks (`useState`, `useEffect`, `useRef`, etc.) must be called:
+
+* At the *top level* of the render function (not inside conditionals or loops)
+* In the *same order* every render
+* Only inside a component render function (inside a `RenderFunction` or `ReactView.render()`)
+
+This applies equally to Java and Kotlin. In `ReactView`, hooks declared as field initializers satisfy this requirement naturally.
+
+=== "State not updating / stale closure"
+
+Use functional updates when the new state depends on the previous value:
+
+[source,java]
+----
+// WRONG — may use stale value in event handler
+count.setInt(count.getInt() + 1);
+
+// CORRECT — always gets the latest value
+count.updateInt(n -> n + 1);
+----
+
+=== TeaVM Java API limitations
+
+TeaVM provides a subset of the Java standard library. Notable unsupported features include:
+
+* Reflection (beyond basic `Class` metadata)
+* `java.nio` channels
+* `java.net` networking
+* Some `java.util.concurrent` classes
+
+Check the https://teavm.org/docs/runtime/[TeaVM runtime documentation] for the full list of supported APIs.
+
+
+== Contributing
+
+=== Adding a New HTML Element
+
+To add support for a new HTML element (e.g., `<dialog>`):
+
+1. *`Html.java`* -- add `dialog(String text)` and `dialog(ReactElement... children)` methods
+2. *`DomBuilder.java`* -- add a `public static final class Dialog extends DomBuilder` inner class
+3. *`HtmlBuilder.kt`* -- add `fun dialog(block: HtmlBuilder.() -> Unit)` as both a nested method and a top-level function
+
+=== Adding a New Event Handler
+
+To add support for a new event type:
+
+1. Create the event interface in `ca.weblite.teavmreact.events` (with `@JSProperty` getters)
+2. Create the handler interface with `@JSFunctor`
+3. Add a `React.setOn*` method in `React.java` using `@JSBody`
+4. Wire it into `ElementBuilder.java`, `DomBuilder.java`, and `HtmlBuilder.kt`
+
+=== Code Style
+
+* Java source/target: 11
+* No ES6 in `@JSBody` scripts
+* Event handlers always through dedicated setter methods
+* Kotlin follows standard conventions with `@HtmlDsl` marker annotation
+
+=== Project Build Order
+
+When making changes across modules, build in order:
+
+[source,bash]
+----
+mvn install -N                           # parent POM
+mvn install -pl teavm-react-core         # core first
+mvn install -pl teavm-react-kotlin       # kotlin depends on core
+mvn process-classes -pl teavm-react-demo # demo depends on both
+----
+----
