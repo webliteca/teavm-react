@@ -4,6 +4,55 @@ import ca.weblite.teavmreact.core.React
 import ca.weblite.teavmreact.hooks.Hooks
 import org.teavm.jso.JSObject
 
+// ========================================================================
+// Pure functions — no JS runtime dependency, fully unit-testable
+// ========================================================================
+
+/**
+ * Convert a kebab-case CSS property name to camelCase.
+ * E.g. "background-color" -> "backgroundColor", "font-size" -> "fontSize"
+ */
+fun kebabToCamelCase(kebab: String): String {
+    return kebab.replace(Regex("-([a-z])")) { it.groupValues[1].uppercase() }
+}
+
+/**
+ * Parse a CSS style string into a list of (camelCaseProp, value) pairs.
+ * E.g. "background-color: red; padding: 10px" -> [("backgroundColor","red"), ("padding","10px")]
+ */
+fun parseCssString(styleString: String): List<Pair<String, String>> {
+    val result = mutableListOf<Pair<String, String>>()
+    for (pair in styleString.split(";")) {
+        val trimmed = pair.trim()
+        if (trimmed.isEmpty()) continue
+        val colonIdx = trimmed.indexOf(':')
+        if (colonIdx <= 0) continue
+        val rawProp = trimmed.substring(0, colonIdx).trim()
+        val value = trimmed.substring(colonIdx + 1).trim()
+        result.add(kebabToCamelCase(rawProp) to value)
+    }
+    return result
+}
+
+/**
+ * Encode a list of strings into a single string using a null-char separator.
+ * Used internally by [StringListStateDelegate].
+ */
+fun encodeStringList(items: List<String>): String = items.joinToString(STRING_LIST_SEPARATOR)
+
+/**
+ * Decode a null-char-separated string back into a list.
+ * Returns empty list for empty input.
+ */
+fun decodeStringList(encoded: String): List<String> =
+    if (encoded.isEmpty()) emptyList() else encoded.split(STRING_LIST_SEPARATOR)
+
+internal const val STRING_LIST_SEPARATOR = "\u0000"
+
+// ========================================================================
+// JS-dependent utilities
+// ========================================================================
+
 /**
  * Convert vararg dependency values to a JSObject[] array for useEffect deps.
  * Handles Int, String, Boolean, Double, and JSObject values.

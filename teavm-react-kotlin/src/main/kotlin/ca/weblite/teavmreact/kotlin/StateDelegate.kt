@@ -119,21 +119,14 @@ fun state(initial: JSObject?): JsObjectStateDelegate = JsObjectStateDelegate(ini
 class StringListStateDelegate(
     initial: List<String>
 ) : ReadWriteProperty<Any?, List<String>> {
-    // Store as a comma-delimited string internally (matching existing pattern)
-    // Empty list = empty string, items separated by \u0000 (null char) to avoid conflicts
-    private val handle: StateHandle<String> = Hooks.useState(initial.joinToString(SEPARATOR))
+    private val handle: StateHandle<String> = Hooks.useState(encodeStringList(initial))
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): List<String> {
-        val raw = handle.string
-        return if (raw.isEmpty()) emptyList() else raw.split(SEPARATOR)
+        return decodeStringList(handle.string)
     }
 
     override fun setValue(thisRef: Any?, property: KProperty<*>, value: List<String>) {
-        handle.setString(value.joinToString(SEPARATOR))
-    }
-
-    companion object {
-        private const val SEPARATOR = "\u0000"
+        handle.setString(encodeStringList(value))
     }
 }
 

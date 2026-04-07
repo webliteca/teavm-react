@@ -93,18 +93,8 @@ open class HtmlBuilder(@PublishedApi internal val tag: String) {
     /** Quick CSS string shorthand (parsed into a style object) */
     fun css(styleString: String) {
         val obj = React.createObject()
-        styleString.split(";").forEach { pair ->
-            val trimmed = pair.trim()
-            if (trimmed.isNotEmpty()) {
-                val colonIdx = trimmed.indexOf(':')
-                if (colonIdx > 0) {
-                    val rawProp = trimmed.substring(0, colonIdx).trim()
-                    val value = trimmed.substring(colonIdx + 1).trim()
-                    // Convert kebab-case to camelCase
-                    val camelProp = rawProp.replace(Regex("-([a-z])")) { it.groupValues[1].uppercase() }
-                    React.setProperty(obj, camelProp, value)
-                }
-            }
+        for ((camelProp, value) in parseCssString(styleString)) {
+            React.setProperty(obj, camelProp, value)
         }
         React.setProperty(props, "style", obj)
     }
