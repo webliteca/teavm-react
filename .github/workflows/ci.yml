@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compile all modules
+        run: mvn compile -B
+
+      - name: Run unit tests (core + kotlin)
+        run: mvn test -pl teavm-react-core,teavm-react-kotlin -B
+
+      - name: Run integration tests (TeaVM compilation + verification)
+        run: |
+          mvn install -N -B
+          mvn install -pl teavm-react-core,teavm-react-kotlin -DskipTests -B
+          mvn process-classes test -pl teavm-react-demo -B

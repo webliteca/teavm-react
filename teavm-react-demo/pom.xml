@@ -15,11 +15,25 @@
     <name>teavm-react-demo</name>
     <description>Demo application for teavm-react</description>
 
+    <properties>
+        <kotlin.version>1.9.25</kotlin.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>ca.weblite</groupId>
             <artifactId>teavm-react-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.weblite</groupId>
+            <artifactId>teavm-react-kotlin</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
