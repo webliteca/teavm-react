@@ -1480,6 +1480,77 @@ The script:
 4. Verifies `classes.js` was produced
 5. Serves `teavm-react-demo/target/webapp/` via Python's HTTP server
 
+=== Live-Reload Development Server
+
+For iterative development, the project includes a live-reload dev server that watches source files, recompiles automatically, and refreshes the browser on every save.
+
+[source,bash]
+----
+./dev.sh           # Build and serve on http://localhost:8080
+./dev.sh 3000      # Custom port
+----
+
+Edit any `.java`, `.kt`, `.html`, or `.css` file in your preferred editor. The browser updates automatically.
+
+==== How it works
+
+The dev server (`DevServer.java`) is a single-file Java 21 program using only JDK built-in APIs:
+
+1. **HTTP server** (`com.sun.net.httpserver.HttpServer`) serves `target/webapp/`
+2. **File watcher** (`java.nio.file.WatchService`) recursively monitors all `src/` directories
+3. **SSE endpoint** (`/__dev/events`) pushes reload notifications to the browser
+4. **Script injection** — a live-reload `<script>` is injected into HTML responses automatically; no changes to `index.html` are required
+
+When a source file changes, the server debounces for 400ms (to batch rapid saves), recompiles via Maven, and sends a `reload` event to all connected browsers. During compilation, the browser shows a "Recompiling..." overlay.
+
+==== Build optimizations
+
+The dev server activates the `dev` Maven profile, which tunes TeaVM for fast iteration:
+
+[cols="1,2",options="header"]
+|===
+| Optimization | Effect
+
+| Incremental TeaVM (`<incremental>true</incremental>`)
+| Caches analysis results in `target/teavm-cache/`; only re-analyzes classes whose bytecode changed. This is the single biggest speedup.
+
+| No source maps (`<sourceMapsGenerated>false</sourceMapsGenerated>`)
+| Skips `.js.map` generation — saves I/O.
+
+| No debug info (`<debugInformationGenerated>false</debugInformationGenerated>`)
+| Skips debug metadata generation.
+
+| Smart module detection
+| If only `teavm-react-demo/src` changed, core and kotlin modules are not rebuilt.
+
+| Static fast-path
+| HTML/CSS-only changes in `src/main/webapp/` are copied directly to `target/webapp/` — Maven is not invoked at all.
+
+| Maven Daemon (mvnd)
+| Automatically detected and used if available. Eliminates JVM cold-start overhead (~2-3s per build).
+
+| Parallel module builds (`-T 1C`)
+| Core and kotlin modules build concurrently when both need rebuilding.
+|===
+
+==== Installing Maven Daemon (optional)
+
+For an additional speed boost, install https://github.com/apache/maven-mvnd[mvnd]. The dev server detects it automatically.
+
+* macOS: `brew install mvndaemon/homebrew-mvnd/mvnd`
+* Linux/Windows: download from the https://github.com/apache/maven-mvnd/releases[releases page]
+
+==== `dev` Maven profile
+
+The `dev` profile is defined in `teavm-react-demo/pom.xml` and overrides the default TeaVM plugin configuration for fast iteration. You can also activate it manually for any Maven command:
+
+[source,bash]
+----
+mvn process-classes -pl teavm-react-demo -Pdev
+----
+
+For production builds, omit `-Pdev` to get full source maps and debug information.
+
 === TeaVM Maven Plugin Configuration
 
 The TeaVM plugin compiles Java bytecode to JavaScript. Configuration from the demo module:
