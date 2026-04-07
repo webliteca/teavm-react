@@ -33,5 +33,6 @@ jobs:
 
       - name: Run integration tests (TeaVM compilation + verification)
         run: |
+          mvn install -N -B
           mvn install -pl teavm-react-core,teavm-react-kotlin -DskipTests -B
           mvn process-classes test -pl teavm-react-demo -B
