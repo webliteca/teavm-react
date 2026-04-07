@@ -2,271 +2,247 @@
 
 ## Overview
 
-This document describes the design of `teavm-react-kotlin`, a new module that wraps
-`teavm-react-core` with an idiomatic Kotlin API. The goal is to provide a developer
-experience that feels native to Kotlin developers, leveraging:
+This document specifies the design for **teavm-react-kotlin**, a new module that wraps the existing `teavm-react-core` Java library with an idiomatic Kotlin API. The goal is to provide a developer experience comparable to Jetpack Compose or kotlinx.html while targeting the browser via TeaVM compilation to JavaScript.
 
-- **Delegated properties** for React state and refs
-- **Type-safe builders** (lambda-with-receiver + `@DslMarker`) for HTML
-- **Coroutines** for effects, async data fetching, and `Flow`-based reactive state
-- **Extension functions** for composable, reusable UI fragments
-- **Reified generics** for type-safe context and props
-- **Operator overloading** for natural element composition
-- **Data classes** with named/default arguments for props
+The existing Java core provides three API surfaces:
 
-### Module Structure
+1. **Functional hooks** -- `Hooks.useState()`, `Hooks.useEffect()`, etc. returning `StateHandle<T>` / `RefHandle` wrappers around raw JS arrays.
+2. **Builder DSL** -- `DomBuilder.Div.create().child(...).onClick(...).build()` chaining pattern.
+3. **Class-based ReactView** -- extend `ReactView`, override `render()`, use hooks in field initializers.
 
-```
-teavm-react-kotlin/
-  src/main/kotlin/ca/weblite/teavmreact/kotlin/
-    dsl/          — HtmlBuilder, @HtmlDsl, element functions
-    state/        — StateDelegate, RefDelegate, state(), ref()
-    component/    — fc(), ComponentScope
-    hooks/        — effect(), launchedEffect(), memo(), context helpers
-    coroutines/   — ReactCoroutineScope, collectAsState, produceState
-    context/      — TypedContext, createContext<T>, provide()
-    style/        — StyleBuilder, CSS property types
-    props/        — Props bridge, data class support
-    util/         — Operator extensions, helper functions
-```
+The Kotlin module will not replace the Java core. It will depend on `teavm-react-core` and provide extension functions, inline wrappers, and DSL builders that delegate to the existing `React`, `Hooks`, `Html`, `ElementBuilder`, `DomBuilder`, `StateHandle`, `RefHandle`, and `ReactContext` classes.
+
+### Key Kotlin features leveraged
+
+- **DSL builders** with lambda-with-receiver and `@DslMarker`
+- **Delegated properties** (`by state(0)`, `by ref(null)`)
+- **Coroutines** (TeaVM supports Kotlin coroutines) for effects, data fetching, and reactive streams
+- **Extension functions** for composable component extraction
+- **Operator overloading** (`+"text"`, `+component`)
+- **Reified generics** for type-safe context and props bridging
+- **Data classes** for typed props with default values
 
 ---
 
 ## 1. Delegated Properties for State
 
-The single biggest DX win. Kotlin's property delegation makes React state feel like
-native mutable variables — no getters, setters, or update callbacks.
+### Problem
 
-### Java (current)
+The Java API requires calling `Hooks.useState(0)` which returns a `StateHandle<Integer>`. Reading the value requires `count.getInt()` and writing requires `count.setInt(5)`. This is verbose and error-prone -- calling `getString()` on an int handle silently coerces via JS.
 
-```java
-var count = Hooks.useState(0);
-int value = count.getInt();          // read
-count.setInt(5);                     // write
-count.updateInt(c -> c + 1);         // functional update
-```
-
-### Kotlin DSL
+### Kotlin design
 
 ```kotlin
-var count by state(0)
-val value = count        // read — just use the variable
-count = 5                // write — just assign
-count++                  // increment — natural operators
-```
+// Usage inside a component
+val Counter = fc("Counter") {
+    var count by state(0)          // Int state, initial value 0
+    var name by state("Alice")     // String state
+    var active by state(true)      // Boolean state
+    var price by state(9.99)       // Double state
+    var items by state<List<String>>(emptyList())  // Generic state
 
-### Implementation
-
-```kotlin
-class StateDelegate<T>(initial: T) : ReadWriteProperty<Any?, T> {
-    private val handle: StateHandle<*> = when (initial) {
-        is Int     -> Hooks.useState(initial)
-        is String  -> Hooks.useState(initial)
-        is Boolean -> Hooks.useState(initial)
-        is Double  -> Hooks.useState(initial)
-        else       -> Hooks.useState(initial as JSObject)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun getValue(thisRef: Any?, property: KProperty<*>): T = when (handle.get()) {
-        // Type-safe unwrapping based on the original type
-        is Int     -> handle.int as T
-        is String  -> handle.string as T
-        is Boolean -> handle.bool as T
-        is Double  -> handle.double as T
-        else       -> handle.get() as T
-    }
-
-    override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
-        when (value) {
-            is Int     -> handle.setInt(value)
-            is String  -> handle.setString(value)
-            is Boolean -> handle.setBool(value)
-            is Double  -> handle.setDouble(value)
-            else       -> handle.set(value as JSObject)
+    div {
+        h1 { +"Count: $count" }
+        button {
+            +"Increment"
+            onClick { count++ }    // Direct assignment triggers re-render
         }
     }
 }
-
-fun <T> state(initial: T): StateDelegate<T> = StateDelegate(initial)
 ```
 
-### Collection State
-
-For lists and maps, we provide specialized delegates that bridge Kotlin collections
-to the underlying JS representation:
+### Implementation sketch
 
 ```kotlin
-var todos by stateList("Buy milk", "Write code")
-// Type: MutableList<String>-like behavior via delegate
+package ca.weblite.teavmreact.kotlin.state
 
-todos = todos + "New item"              // immutable update (React-friendly)
-todos = todos.filter { it != "Buy milk" }  // filter
+import ca.weblite.teavmreact.hooks.Hooks
+import ca.weblite.teavmreact.hooks.StateHandle
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
+
+/**
+ * Delegated property backed by React's useState hook.
+ * The type parameter determines which StateHandle getter/setter pair is used.
+ */
+class StateDelegate<T>(private val handle: StateHandle<*>, private val type: StateType) :
+    ReadWriteProperty<Any?, T> {
+
+    @Suppress("UNCHECKED_CAST")
+    override fun getValue(thisRef: Any?, property: KProperty<*>): T = when (type) {
+        StateType.INT -> handle.int as T
+        StateType.STRING -> handle.string as T
+        StateType.BOOL -> handle.bool as T
+        StateType.DOUBLE -> handle.double as T
+        StateType.OBJECT -> handle.get() as T
+    }
+
+    override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) = when (type) {
+        StateType.INT -> handle.setInt(value as Int)
+        StateType.STRING -> handle.setString(value as String)
+        StateType.BOOL -> handle.setBool(value as Boolean)
+        StateType.DOUBLE -> handle.setDouble(value as Double)
+        StateType.OBJECT -> handle.set(value as org.teavm.jso.JSObject)
+    }
+}
+
+enum class StateType { INT, STRING, BOOL, DOUBLE, OBJECT }
+
+// --- Factory functions called inside ComponentScope ---
+
+fun ComponentScope.state(initial: Int): StateDelegate<Int> =
+    StateDelegate(Hooks.useState(initial), StateType.INT)
+
+fun ComponentScope.state(initial: String): StateDelegate<String> =
+    StateDelegate(Hooks.useState(initial), StateType.STRING)
+
+fun ComponentScope.state(initial: Boolean): StateDelegate<Boolean> =
+    StateDelegate(Hooks.useState(initial), StateType.BOOL)
+
+fun ComponentScope.state(initial: Double): StateDelegate<Double> =
+    StateDelegate(Hooks.useState(initial), StateType.DOUBLE)
+
+inline fun <reified T> ComponentScope.state(initial: T): StateDelegate<T> =
+    StateDelegate(Hooks.useState(toJSObject(initial)), StateType.OBJECT)
 ```
 
 ---
 
 ## 2. Type-Safe HTML Builder DSL
 
-Replace `.child()` chains with Kotlin's lambda-with-receiver pattern, matching the
-conventions established by kotlinx.html and Compose HTML.
+### Problem
 
-### Java (current — Builder approach)
+The Java `Html` class uses varargs children (`div(child1, child2)`) and the `DomBuilder` uses `.child()` chaining. Neither provides the nesting clarity of HTML structure, and adding attributes requires breaking out to `ElementBuilder`.
 
-```java
-Div.create()
-    .child(H1.create().text("Todo List"))
-    .child(Ul.create()
-        .child(Li.create().text("Item 1"))
-        .child(Li.create().text("Item 2")))
-    .child(Button.create().text("Add").onClick(e -> { /* ... */ }))
-    .build()
-```
-
-### Kotlin DSL
-
-```kotlin
-div {
-    h1 { +"Todo List" }
-    ul {
-        li { +"Item 1" }
-        li { +"Item 2" }
-    }
-    button {
-        +"Add"
-        onClick { /* ... */ }
-    }
-}
-```
-
-### Implementation
+### Kotlin design
 
 ```kotlin
 @DslMarker
 annotation class HtmlDsl
 
 @HtmlDsl
-open class HtmlBuilder(private val tag: String) {
-    protected val children = mutableListOf<ReactElement>()
-    protected val props: JSObject = React.createObject()
+class HtmlBuilder {
+    internal val children = mutableListOf<ReactElement>()
+    internal val props: JSObject = React.createObject()
 
-    /** Text node via unaryPlus — idiomatic Kotlin HTML DSL convention */
+    // --- Text nodes via unaryPlus ---
     operator fun String.unaryPlus() {
         children.add(Html.text(this))
     }
 
-    /** Render a child component */
-    operator fun JSObject.unaryPlus() {
-        children.add(Html.component(this))
-    }
-
-    /** Render a child ReactElement */
+    // --- Render a ReactElement child ---
     operator fun ReactElement.unaryPlus() {
         children.add(this)
     }
 
-    // --- Attributes ---
+    // --- Render a list of elements ---
+    operator fun List<ReactElement>.unaryPlus() {
+        children.addAll(this)
+    }
+
+    // --- Attribute setters ---
     fun className(value: String) { React.setProperty(props, "className", value) }
     fun id(value: String) { React.setProperty(props, "id", value) }
     fun key(value: String) { React.setProperty(props, "key", value) }
     fun key(value: Int) { React.setProperty(props, "key", value) }
 
-    // --- Event handlers ---
-    fun onClick(handler: (JSObject) -> Unit) { React.setOnClick(props, handler) }
-    fun onChange(handler: (ChangeEvent) -> Unit) { React.setOnChange(props, handler) }
-    fun onKeyDown(handler: (KeyboardEvent) -> Unit) { React.setOnKeyDown(props, handler) }
-    fun onSubmit(handler: (JSObject) -> Unit) { React.setOnSubmit(props, handler) }
-    // ... other events
-
-    // --- Child element functions ---
-    fun div(block: HtmlBuilder.() -> Unit) {
-        children.add(HtmlBuilder("div").apply(block).build())
-    }
-    fun span(block: HtmlBuilder.() -> Unit) {
-        children.add(HtmlBuilder("span").apply(block).build())
-    }
-    fun p(block: HtmlBuilder.() -> Unit) {
-        children.add(HtmlBuilder("p").apply(block).build())
-    }
-    fun h1(block: HtmlBuilder.() -> Unit) {
-        children.add(HtmlBuilder("h1").apply(block).build())
-    }
-    fun h2(block: HtmlBuilder.() -> Unit) {
-        children.add(HtmlBuilder("h2").apply(block).build())
-    }
-    // ... h3-h6, ul, ol, li, table, thead, tbody, tr, td, th, etc.
-
-    fun button(block: HtmlBuilder.() -> Unit) {
-        children.add(HtmlBuilder("button").apply(block).build())
-    }
-    fun input(type: String = "text", block: InputBuilder.() -> Unit) {
-        children.add(InputBuilder(type).apply(block).build())
-    }
-    fun form(block: HtmlBuilder.() -> Unit) {
-        children.add(HtmlBuilder("form").apply(block).build())
-    }
-    fun a(block: AnchorBuilder.() -> Unit) {
-        children.add(AnchorBuilder().apply(block).build())
-    }
-    fun img(block: ImgBuilder.() -> Unit) {
-        children.add(ImgBuilder().apply(block).build())
+    // --- Style sub-builder ---
+    fun style(block: StyleBuilder.() -> Unit) {
+        val styleObj = StyleBuilder().apply(block).build()
+        React.setProperty(props, "style", styleObj)
     }
 
-    // --- Keyed elements ---
-    fun li(key: Any? = null, block: HtmlBuilder.() -> Unit) {
-        val builder = HtmlBuilder("li")
-        key?.let { builder.key(it.toString()) }
-        children.add(builder.apply(block).build())
-    }
+    // --- Event handlers (use React.setOn* to preserve JS function refs) ---
+    fun onClick(handler: EventHandler) { React.setOnClick(props, handler) }
+    fun onChange(handler: ChangeEventHandler) { React.setOnChange(props, handler) }
+    fun onKeyDown(handler: KeyboardEventHandler) { React.setOnKeyDown(props, handler) }
+    fun onKeyUp(handler: KeyboardEventHandler) { React.setOnKeyUp(props, handler) }
+    fun onFocus(handler: FocusEventHandler) { React.setOnFocus(props, handler) }
+    fun onBlur(handler: FocusEventHandler) { React.setOnBlur(props, handler) }
+    fun onSubmit(handler: SubmitEventHandler) { React.setOnSubmit(props, handler) }
 
-    fun build(): ReactElement =
-        React.createElement(tag, props, children.toTypedArray())
-}
-
-/** Specialized builder for input elements */
-class InputBuilder(type: String) : HtmlBuilder("input") {
-    init { React.setProperty(props, "type", type) }
+    // --- Form attributes ---
     fun value(v: String) { React.setProperty(props, "value", v) }
     fun placeholder(v: String) { React.setProperty(props, "placeholder", v) }
     fun disabled(v: Boolean) { React.setProperty(props, "disabled", v) }
     fun checked(v: Boolean) { React.setProperty(props, "checked", v) }
-}
-
-/** Specialized builder for anchor elements */
-class AnchorBuilder : HtmlBuilder("a") {
+    fun type(v: String) { React.setProperty(props, "type", v) }
     fun href(v: String) { React.setProperty(props, "href", v) }
-    fun target(v: String) { React.setProperty(props, "target", v) }
-}
-
-/** Specialized builder for img elements */
-class ImgBuilder : HtmlBuilder("img") {
     fun src(v: String) { React.setProperty(props, "src", v) }
     fun alt(v: String) { React.setProperty(props, "alt", v) }
+    fun name(v: String) { React.setProperty(props, "name", v) }
+    fun htmlFor(v: String) { React.setProperty(props, "htmlFor", v) }
+
+    // --- Ref attachment ---
+    fun ref(refDelegate: RefDelegate<*>) {
+        React.setProperty(props, "ref", refDelegate.raw())
+    }
+
+    // --- Generic prop ---
+    fun prop(name: String, value: String) { React.setProperty(props, name, value) }
+    fun prop(name: String, value: Int) { React.setProperty(props, name, value) }
+    fun prop(name: String, value: Boolean) { React.setProperty(props, name, value) }
+    fun prop(name: String, value: JSObject) { React.setProperty(props, name, value) }
+
+    internal fun build(tag: String): ReactElement {
+        if (children.isEmpty()) {
+            return React.createElement(tag, props)
+        }
+        return React.createElement(tag, props, children.toTypedArray() as Array<JSObject>)
+    }
 }
-
-// --- Top-level entry points ---
-fun div(block: HtmlBuilder.() -> Unit): ReactElement =
-    HtmlBuilder("div").apply(block).build()
-
-fun span(block: HtmlBuilder.() -> Unit): ReactElement =
-    HtmlBuilder("span").apply(block).build()
-
-// ... all other top-level element functions
 ```
 
-### @DslMarker Prevents Scope Leaking
+### Element functions
 
-The `@HtmlDsl` annotation prevents accidental access to outer builder scopes:
+```kotlin
+// Each HTML element is a top-level function usable inside any HtmlBuilder scope.
+// The optional key parameter is set on the props before building.
+
+inline fun HtmlBuilder.div(key: String? = null, block: HtmlBuilder.() -> Unit = {}) {
+    val builder = HtmlBuilder().apply(block)
+    key?.let { React.setProperty(builder.props, "key", it) }
+    children.add(builder.build("div"))
+}
+
+inline fun HtmlBuilder.span(key: String? = null, block: HtmlBuilder.() -> Unit = {}) {
+    val builder = HtmlBuilder().apply(block)
+    key?.let { React.setProperty(builder.props, "key", it) }
+    children.add(builder.build("span"))
+}
+
+inline fun HtmlBuilder.h1(key: String? = null, block: HtmlBuilder.() -> Unit = {}) {
+    val builder = HtmlBuilder().apply(block)
+    key?.let { React.setProperty(builder.props, "key", it) }
+    children.add(builder.build("h1"))
+}
+
+// ... same pattern for h2, h3, h4, h5, h6, p, pre, code, blockquote,
+//     em, strong, small, ul, ol, li, dl, dt, dd, table, thead, tbody,
+//     tfoot, tr, th, td, caption, form, fieldset, legend, label,
+//     section, article, aside, header, footer, main, nav, figure,
+//     figcaption, details, summary, button, input, textarea, select, a, img
+
+// Void elements (no children)
+inline fun HtmlBuilder.hr() { children.add(Html.hr()) }
+inline fun HtmlBuilder.br() { children.add(Html.br()) }
+```
+
+### Usage
 
 ```kotlin
 div {
+    className("container")
+    h1 { +"Hello World" }
+    p {
+        +"This is a "
+        strong { +"bold" }
+        +" paragraph."
+    }
     ul {
-        li {
-            // className() here applies to <li>, NOT <ul> or <div>
-            // Trying to call ul { } here would be a compile error
-            className("item")
-            +"Text"
-        }
+        li(key = "a") { +"Item A" }
+        li(key = "b") { +"Item B" }
+        li(key = "c") { +"Item C" }
     }
 }
 ```
@@ -275,128 +251,273 @@ div {
 
 ## 3. Component Definition with `fc { }`
 
-A concise way to define function components that wraps `React.wrapComponent`.
+### Problem
 
-### Java (current)
+Java component definition requires `React.wrapComponent((props) -> { ... }, "Name")` and manually dealing with `JSObject` props. There is no scope object providing hooks in a discoverable way.
 
-```java
-static final JSObject counter = React.wrapComponent(props -> {
-    var count = Hooks.useState(0);
-    return Html.div(
-        Html.p("Count: " + count.getInt()),
-        Html.button("+").onClick(e -> count.updateInt(c -> c + 1)).build()
-    );
-}, "Counter");
+### Kotlin design
+
+```kotlin
+/**
+ * Define a functional component. The lambda receiver is a ComponentScope,
+ * which provides access to state(), effect(), memo(), ref(), context(), etc.
+ *
+ * The lambda must return a ReactElement (the component's render output).
+ */
+fun fc(name: String, render: ComponentScope.() -> ReactElement): FunctionComponent {
+    val jsComponent = React.wrapComponent(
+        { props ->
+            val scope = ComponentScope(props)
+            scope.render()
+        },
+        name
+    )
+    return FunctionComponent(jsComponent, name)
+}
+
+/**
+ * Typed variant: the component receives typed props.
+ */
+inline fun <reified P : Any> fc(
+    name: String,
+    crossinline render: ComponentScope.(P) -> ReactElement
+): TypedFunctionComponent<P> {
+    val jsComponent = React.wrapComponent(
+        { props ->
+            val scope = ComponentScope(props)
+            val typedProps = propsFromJS<P>(props)
+            scope.render(typedProps)
+        },
+        name
+    )
+    return TypedFunctionComponent(jsComponent, name)
+}
+
+class FunctionComponent(internal val jsComponent: JSObject, val name: String) {
+    /** Render this component with no props. */
+    operator fun invoke(): ReactElement = React.createElement(jsComponent, null)
+
+    /** Render with raw JS props. */
+    operator fun invoke(props: JSObject): ReactElement =
+        React.createElement(jsComponent, props)
+}
 ```
 
-### Kotlin DSL
+### ComponentScope
+
+```kotlin
+@HtmlDsl
+class ComponentScope(val rawProps: JSObject) {
+    // State delegates (from Section 1)
+    fun state(initial: Int) = StateDelegate<Int>(Hooks.useState(initial), StateType.INT)
+    fun state(initial: String) = StateDelegate<String>(Hooks.useState(initial), StateType.STRING)
+    fun state(initial: Boolean) = StateDelegate<Boolean>(Hooks.useState(initial), StateType.BOOL)
+    fun state(initial: Double) = StateDelegate<Double>(Hooks.useState(initial), StateType.DOUBLE)
+    inline fun <reified T> state(initial: T) = StateDelegate<T>(
+        Hooks.useState(toJSObject(initial)), StateType.OBJECT
+    )
+
+    // Ref delegates (from Section 11)
+    inline fun <reified T : JSObject> ref(initial: T?) = RefDelegate<T>(
+        Hooks.useRef(initial)
+    )
+
+    // Effect (from Section 5)
+    fun effect(deps: Array<JSObject>? = null, block: EffectScope.() -> Unit) { ... }
+    fun launchedEffect(vararg deps: Any?, block: suspend CoroutineScope.() -> Unit) { ... }
+
+    // Memo
+    fun <T : JSObject> memo(vararg deps: JSObject, factory: () -> T): T =
+        Hooks.useMemo({ factory() }, deps) as T
+
+    // Context (from Section 6)
+    inline fun <reified T> useContext(ctx: TypedContext<T>): T = ctx.use()
+
+    // HTML builder entry point -- creates the root element tree
+    fun html(block: HtmlBuilder.() -> Unit): ReactElement {
+        val builder = HtmlBuilder().apply(block)
+        // If single child, return it; otherwise wrap in Fragment
+        return when (builder.children.size) {
+            0 -> React.createElement("span", null) // empty
+            1 -> builder.children[0]
+            else -> React.createElement(
+                React.fragment(), null,
+                builder.children.toTypedArray() as Array<JSObject>
+            )
+        }
+    }
+}
+```
+
+### Usage
 
 ```kotlin
 val Counter = fc("Counter") {
     var count by state(0)
 
-    div {
-        p { +"Count: $count" }       // String templates!
-        button {
-            +"+"
-            onClick { count++ }      // Direct mutation via delegate
-        }
-    }
-}
-```
-
-### Implementation
-
-```kotlin
-class ComponentScope(val props: JSObject) : CoroutineScope {
-    // Coroutine scope tied to component lifecycle (see Section 5)
-    override val coroutineContext: CoroutineContext
-        get() = SupervisorJob() + Dispatchers.Main
-
-    fun <T> state(initial: T): StateDelegate<T> = StateDelegate(initial)
-    fun <T : Any> ref(initial: T? = null): RefDelegate<T> = RefDelegate(initial)
-
-    // Hooks (see Section 5 for coroutine-based hooks)
-    fun effect(vararg deps: Any?, block: EffectScope.() -> Unit) { /* ... */ }
-    fun <T> memo(vararg deps: Any?, compute: () -> T): T { /* ... */ }
-    fun <T> context(ctx: TypedContext<T>): T { /* ... */ }
-}
-
-fun fc(name: String = "", render: ComponentScope.() -> ReactElement): JSObject {
-    return React.wrapComponent(
-        RenderFunction { props -> ComponentScope(props).render() },
-        name
-    )
-}
-```
-
-### Typed Props with Data Classes
-
-```kotlin
-data class GreetingProps(
-    val name: String,
-    val age: Int = 0,
-    val onGreet: (() -> Unit)? = null
-)
-
-val Greeting = fc<GreetingProps>("Greeting") { props ->
-    div {
-        h1 { +"Hello, ${props.name}!" }
-        if (props.age > 0) {
-            p { +"Age: ${props.age}" }
-        }
-        props.onGreet?.let { callback ->
+    html {
+        div {
+            h1 { +"Count: $count" }
             button {
-                +"Greet"
-                onClick { callback() }
+                +"Increment"
+                onClick { count++ }
+            }
+            button {
+                +"Reset"
+                onClick { count = 0 }
             }
         }
     }
 }
 
-// Usage — named arguments with defaults
-+Greeting(name = "Alice", age = 30)
-+Greeting(name = "Bob")  // age defaults to 0, onGreet defaults to null
-```
-
-### Implementation of typed `fc<P>`
-
-```kotlin
-inline fun <reified P : Any> fc(
-    name: String = "",
-    crossinline render: ComponentScope.(P) -> ReactElement
-): TypedComponent<P> {
-    val wrapped = React.wrapComponent(
-        RenderFunction { jsProps ->
-            val props = jsPropsToKotlin<P>(jsProps)  // deserialize
-            ComponentScope(jsProps).render(props)
-        },
-        name
-    )
-    return TypedComponent(wrapped)
-}
-
-class TypedComponent<P : Any>(private val jsComponent: JSObject) {
-    /** Invoke with typed props — enables Greeting(name = "Alice") syntax */
-    operator fun invoke(props: P): ReactElement {
-        val jsProps = kotlinPropsToJs(props)  // serialize
-        return React.createElement(jsComponent, jsProps)
+// Render in the app
+val App = fc("App") {
+    html {
+        div {
+            +Counter()  // invoke with no props
+        }
     }
 }
 ```
 
 ---
 
-## 4. Coroutine-Based Effects
+## 4. Props via Data Classes
 
-**This is the centerpiece of the Kotlin API.** Since TeaVM supports coroutines,
-we can offer structured concurrency for effects, async data fetching, and reactive
-streams — bringing Jetpack Compose-level ergonomics to React.
+### Problem
 
-### 4a. `launchedEffect` — Compose-inspired
+Java props are untyped `JSObject` instances. Properties must be read with `React.jsToString(props)` or similar, and there is no compile-time safety, no default values, and no named-argument invocation.
 
-A coroutine that launches on mount (or when dependencies change) and is
-automatically cancelled on unmount via structured concurrency.
+### Kotlin design
+
+```kotlin
+// Define props as a data class
+data class GreetingProps(
+    val name: String = "World",
+    val age: Int = 0,
+    val showAge: Boolean = true
+)
+
+// Define a typed component
+val Greeting = fc<GreetingProps>("Greeting") { props ->
+    html {
+        div {
+            h1 { +"Hello, ${props.name}!" }
+            if (props.showAge) {
+                p { +"Age: ${props.age}" }
+            }
+        }
+    }
+}
+
+// Invoke with named arguments -- type-safe at call site
+val App = fc("App") {
+    html {
+        div {
+            +Greeting(name = "Alice", age = 30)
+            +Greeting(name = "Bob", showAge = false)
+            +Greeting()  // uses defaults: name="World", age=0, showAge=true
+        }
+    }
+}
+```
+
+### TypedFunctionComponent with operator invoke
+
+```kotlin
+class TypedFunctionComponent<P : Any>(
+    internal val jsComponent: JSObject,
+    val name: String
+) {
+    /** Invoke with no props (uses data class defaults). */
+    operator fun invoke(): ReactElement =
+        React.createElement(jsComponent, null)
+
+    /** Invoke with raw JS props. */
+    operator fun invoke(props: JSObject): ReactElement =
+        React.createElement(jsComponent, props)
+}
+
+/**
+ * For each typed component, generate an invoke overload that accepts
+ * the data class constructor parameters as named arguments.
+ *
+ * This is achieved via an inline function with reified type that
+ * converts the data class to a JSObject via property iteration.
+ */
+inline fun <reified P : Any> TypedFunctionComponent<P>.invoke(
+    builder: () -> P
+): ReactElement {
+    val props = builder()
+    val jsProps = propsToJS(props)
+    return React.createElement(jsComponent, jsProps)
+}
+
+// --- Props bridge ---
+
+/**
+ * Converts a data class instance to a JSObject by iterating its
+ * declared properties via reflection (Kotlin reflection is available
+ * in TeaVM for data classes compiled to JS).
+ */
+inline fun <reified P : Any> propsToJS(props: P): JSObject {
+    val obj = React.createObject()
+    for (prop in P::class.members.filterIsInstance<kotlin.reflect.KProperty1<P, *>>()) {
+        val value = prop.get(props)
+        when (value) {
+            is String -> React.setProperty(obj, prop.name, value)
+            is Int -> React.setProperty(obj, prop.name, value)
+            is Boolean -> React.setProperty(obj, prop.name, value)
+            is Double -> React.setProperty(obj, prop.name, value)
+            is JSObject -> React.setProperty(obj, prop.name, value)
+            null -> { /* skip nulls */ }
+        }
+    }
+    return obj
+}
+
+/**
+ * Converts a JSObject back to a data class instance.
+ * Used internally when a typed component receives raw JS props.
+ */
+inline fun <reified P : Any> propsFromJS(jsProps: JSObject): P {
+    // Implementation uses the data class primary constructor,
+    // reading each parameter name from the JSObject.
+    val constructor = P::class.constructors.first()
+    val args = constructor.parameters.associateWith { param ->
+        when (param.type.classifier) {
+            String::class -> React.jsToString(getJSProperty(jsProps, param.name!!))
+            Int::class -> React.jsToInt(getJSProperty(jsProps, param.name!!))
+            Boolean::class -> React.jsToBool(getJSProperty(jsProps, param.name!!))
+            else -> getJSProperty(jsProps, param.name!!)
+        }
+    }
+    return constructor.callBy(args)
+}
+```
+
+### Call-site ergonomics
+
+Because `TypedFunctionComponent` has `operator fun invoke`, components are called like functions:
+
+```kotlin
+// These are all equivalent:
++Greeting(name = "Alice", age = 30)
++Greeting.invoke { GreetingProps(name = "Alice", age = 30) }
++Greeting(GreetingProps(name = "Alice", age = 30).toJS())
+```
+
+The first form is syntactic sugar generated by a compiler plugin or achieved via the invoke overload that accepts the data class constructor parameters directly. If a compiler plugin is not feasible, the `invoke { }` lambda form is the primary API.
+
+---
+
+## 5. Coroutine-Based Effects
+
+This is the centerpiece of the Kotlin DSL. TeaVM supports Kotlin coroutines, which opens up structured concurrency for component lifecycle management, async data fetching, and reactive streams.
+
+### 5a. LaunchedEffect (Compose-inspired)
+
+A suspending block that runs in a `CoroutineScope` tied to the component lifecycle. Automatically cancelled on unmount via structured concurrency.
 
 ```kotlin
 val DataLoader = fc("DataLoader") {
@@ -404,24 +525,29 @@ val DataLoader = fc("DataLoader") {
     var loading by state(true)
     var error by state<String?>(null)
 
-    // Launches a coroutine — auto-cancels on unmount
+    // Runs once on mount (no deps), cancels on unmount
     launchedEffect {
         try {
-            data = api.fetchItems()     // suspend fun!
-            loading = false
+            val result = fetchItems()   // suspend fun -- non-blocking
+            data = result
         } catch (e: Exception) {
             error = e.message
+        } finally {
             loading = false
         }
     }
 
-    div {
-        when {
-            loading -> p { +"Loading..." }
-            error != null -> p { className("error"); +"Error: $error" }
-            else -> ul {
-                for (item in data) {
-                    li(key = item.id) { +item.name }
+    html {
+        div {
+            if (loading) {
+                p { +"Loading..." }
+            } else if (error != null) {
+                p { +"Error: $error" }
+            } else {
+                ul {
+                    items(data) { item ->
+                        li { +item.name }
+                    }
                 }
             }
         }
@@ -429,25 +555,25 @@ val DataLoader = fc("DataLoader") {
 }
 ```
 
-#### With dependencies — re-launches when deps change
+With dependencies -- re-launches when `url` changes:
 
 ```kotlin
-val UserProfile = fc("UserProfile") {
-    val userId = prop<String>("userId")
-    var profile by state<User?>(null)
+val RemoteData = fc("RemoteData") {
+    var url by state("/api/items")
+    var data by state<String>("")
 
-    // Re-fetches whenever userId changes
-    launchedEffect(userId) {
-        profile = null                // reset
-        profile = api.fetchUser(userId)  // suspend
+    // Re-runs whenever url changes. Previous coroutine is cancelled.
+    launchedEffect(url) {
+        data = httpGet(url)   // suspend fun
     }
 
-    div {
-        if (profile == null) {
-            p { +"Loading user $userId..." }
-        } else {
-            h2 { +profile!!.name }
-            p { +profile!!.email }
+    html {
+        div {
+            input {
+                value(url)
+                onChange { url = it.value }
+            }
+            pre { +data }
         }
     }
 }
@@ -456,36 +582,53 @@ val UserProfile = fc("UserProfile") {
 ### Implementation
 
 ```kotlin
+/**
+ * Launches a coroutine on mount (or when deps change). The previous
+ * coroutine is cancelled before re-launching. On unmount, the coroutine
+ * is cancelled via structured concurrency.
+ */
 fun ComponentScope.launchedEffect(
-    vararg keys: Any?,
+    vararg deps: Any?,
     block: suspend CoroutineScope.() -> Unit
 ) {
-    // Convert keys to JS dependency array
-    val deps = if (keys.isEmpty()) null else keys.toJsDeps()
+    val jsDeps = if (deps.isEmpty()) Hooks.deps() else deps.map { toJSDep(it) }.toTypedArray()
 
     Hooks.useEffect({
-        // Launch coroutine in component's scope
-        val job = this@ComponentScope.launch { block() }
-        // Return cleanup that cancels the coroutine
-        VoidCallback { job.cancel() }
-    }, deps)
+        val scope = ReactCoroutineScope()
+        scope.launch { block() }
+
+        // Return cleanup function: cancel all coroutines in this scope
+        return@useEffect VoidCallback { scope.cancel() }
+    }, jsDeps)
+}
+
+/**
+ * CoroutineScope tied to a React component's lifecycle.
+ * Uses Dispatchers.Main (maps to setTimeout/requestAnimationFrame in TeaVM).
+ */
+class ReactCoroutineScope : CoroutineScope {
+    private val job = SupervisorJob()
+    override val coroutineContext: CoroutineContext = job + Dispatchers.Main
+
+    fun cancel() {
+        job.cancel()
+    }
 }
 ```
 
-### 4b. `effect` with Coroutine-Aware Cleanup
+### 5b. Coroutine-aware effect with cleanup
 
-For effects that need explicit setup/teardown with coroutine support:
+For effects that need explicit cleanup beyond coroutine cancellation:
 
 ```kotlin
-val Timer = fc("Timer") {
-    var ticks by state(0)
+val TickerComponent = fc("Ticker") {
+    var tick by state(0)
 
-    effect {
-        // Launch a coroutine within the effect
+    effect(deps = Hooks.deps()) {
         val job = launch {
             while (isActive) {
                 delay(1000)
-                ticks++
+                tick++
             }
         }
 
@@ -494,43 +637,55 @@ val Timer = fc("Timer") {
         }
     }
 
-    p { +"Ticks: $ticks" }
+    html {
+        p { +"Tick: $tick" }
+    }
 }
 ```
 
 ### Implementation
 
 ```kotlin
-class EffectScope(private val scope: CoroutineScope) : CoroutineScope by scope {
-    internal var cleanupFn: (() -> Unit)? = null
+class EffectScope : CoroutineScope {
+    private val job = SupervisorJob()
+    override val coroutineContext: CoroutineContext = job + Dispatchers.Main
+    private var cleanupFn: (() -> Unit)? = null
 
     fun onCleanup(block: () -> Unit) {
         cleanupFn = block
     }
+
+    internal fun cleanup() {
+        cleanupFn?.invoke()
+        job.cancel()
+    }
 }
 
 fun ComponentScope.effect(
-    vararg keys: Any?,
+    deps: Array<JSObject>? = null,
     block: EffectScope.() -> Unit
 ) {
-    val deps = if (keys.isEmpty()) null else keys.toJsDeps()
+    val effectCallback = EffectCallback {
+        val scope = EffectScope()
+        scope.block()
+        return@EffectCallback VoidCallback { scope.cleanup() }
+    }
 
-    Hooks.useEffect({
-        val effectScope = EffectScope(this@ComponentScope)
-        effectScope.block()
-        VoidCallback { effectScope.cleanupFn?.invoke() }
-    }, deps)
+    if (deps != null) {
+        Hooks.useEffect(effectCallback, deps)
+    } else {
+        Hooks.useEffect(effectCallback)
+    }
 }
 ```
 
-### 4c. `Flow.collectAsState` — Reactive Streams as State
+### 5c. Flow-based State (reactive streams)
 
-The most powerful pattern: turn any Kotlin `Flow` into a delegated state property
-that automatically collects on mount and cancels on unmount.
+Collect a Kotlin `Flow` as component state. Collection starts on mount and is cancelled on unmount.
 
 ```kotlin
-val LiveTimer = fc("LiveTimer") {
-    // Flow that emits every second, collected into state
+val Timer = fc("Timer") {
+    // Flow that emits every second, collected as delegated state
     val seconds by flow {
         var t = 0
         while (true) {
@@ -539,22 +694,23 @@ val LiveTimer = fc("LiveTimer") {
         }
     }.collectAsState(initial = 0)
 
-    p { +"Elapsed: ${seconds}s" }
+    html {
+        p { +"Elapsed: ${seconds}s" }
+    }
 }
 ```
 
-#### With external flows (e.g., WebSocket, event bus)
+A more practical example with data streams:
 
 ```kotlin
-val LiveChat = fc("LiveChat") {
-    val messages by chatService.messagesFlow
-        .collectAsState(initial = emptyList())
+val LiveFeed = fc("LiveFeed") {
+    val messages by webSocketFlow("wss://feed.example.com")
+        .collectAsState(initial = emptyList<Message>())
 
-    ul {
-        for (msg in messages) {
-            li(key = msg.id) {
-                strong { +msg.author }
-                +" ${msg.text}"
+    html {
+        ul {
+            items(messages) { msg ->
+                li { +"${msg.user}: ${msg.text}" }
             }
         }
     }
@@ -564,127 +720,203 @@ val LiveChat = fc("LiveChat") {
 ### Implementation
 
 ```kotlin
-fun <T> Flow<T>.collectAsState(initial: T): StateDelegate<T> {
-    val delegate = state(initial)
+/**
+ * Wraps Flow collection into a React state delegate.
+ * Starts collection in a LaunchedEffect (mount), cancels on unmount.
+ */
+class FlowStateCollector<T>(
+    private val flow: Flow<T>,
+    private val initial: T
+) {
+    fun collectAsState(scope: ComponentScope): StateDelegate<T> {
+        val delegate = scope.state(initial)
 
-    launchedEffect {
-        this@collectAsState.collect { value ->
-            // Update React state on each emission
-            delegate.set(value)
+        scope.launchedEffect {
+            flow.collect { value ->
+                // Update React state on each emission
+                delegate.setValue(null, TODO_PROP, value)
+            }
         }
+
+        return delegate
+    }
+}
+
+fun <T> Flow<T>.collectAsState(initial: T): FlowStateProvider<T> =
+    FlowStateProvider(this, initial)
+
+class FlowStateProvider<T>(
+    internal val flow: Flow<T>,
+    internal val initial: T
+)
+
+// Extension on ComponentScope so `by` delegation works
+operator fun <T> FlowStateProvider<T>.provideDelegate(
+    thisRef: ComponentScope,
+    property: KProperty<*>
+): StateDelegate<T> {
+    val stateDelegate = thisRef.state(initial)
+    thisRef.launchedEffect {
+        flow.collect { value ->
+            // Triggers React re-render
+            stateDelegate.setValue(null, property, value)
+        }
+    }
+    return stateDelegate
+}
+```
+
+### 5d. Suspending Event Handlers
+
+Event handlers that need to perform async work (API calls, etc.):
+
+```kotlin
+val SaveForm = fc("SaveForm") {
+    var data by state("")
+    var saving by state(false)
+    var message by state("")
+
+    html {
+        div {
+            input {
+                value(data)
+                onChange { data = it.value }
+            }
+            button {
+                +"Save"
+                disabled(saving)
+                onClickAsync {
+                    saving = true
+                    try {
+                        val result = api.save(data)   // suspend call
+                        message = "Saved: ${result.id}"
+                    } catch (e: Exception) {
+                        message = "Error: ${e.message}"
+                    } finally {
+                        saving = false
+                    }
+                }
+            }
+            p { +message }
+        }
+    }
+}
+```
+
+### Implementation
+
+```kotlin
+/**
+ * Async click handler. Launches a coroutine in the component's scope.
+ * Multiple clicks can be handled concurrently or debounced as configured.
+ */
+fun HtmlBuilder.onClickAsync(
+    block: suspend CoroutineScope.() -> Unit
+) {
+    val scope = ReactCoroutineScope()  // Created per-render, but Job is stable via ref
+    onClick {
+        scope.launch { block() }
+    }
+}
+
+// Same pattern for other events:
+fun HtmlBuilder.onSubmitAsync(block: suspend CoroutineScope.() -> Unit) { ... }
+fun HtmlBuilder.onChangeAsync(block: suspend CoroutineScope.(ChangeEvent) -> Unit) { ... }
+```
+
+### 5e. produceState (Compose-inspired)
+
+A convenience that combines state declaration and async population:
+
+```kotlin
+val UserProfile = fc("UserProfile") {
+    val userId by state("user-123")
+
+    // produceState: declares state + launches coroutine to populate it
+    val profile by produceState<UserProfile?>(null, userId) {
+        value = api.fetchUser(userId)  // suspend call
+    }
+
+    html {
+        div {
+            if (profile == null) {
+                p { +"Loading profile..." }
+            } else {
+                h1 { +profile!!.name }
+                p { +profile!!.email }
+            }
+        }
+    }
+}
+```
+
+### Implementation
+
+```kotlin
+class ProduceStateScope<T>(
+    private val stateDelegate: StateDelegate<T>
+) {
+    var value: T
+        get() = stateDelegate.getValue(null, TODO_PROP)
+        set(v) = stateDelegate.setValue(null, TODO_PROP, v)
+}
+
+fun <T> ComponentScope.produceState(
+    initial: T,
+    vararg deps: Any?,
+    producer: suspend ProduceStateScope<T>.() -> Unit
+): StateDelegate<T> {
+    val delegate = state(initial)
+    val scope = ProduceStateScope(delegate)
+
+    launchedEffect(*deps) {
+        scope.producer()
     }
 
     return delegate
 }
 ```
 
-### 4d. Suspending Event Handlers
+---
 
-Handle async operations in event handlers without callback nesting:
+## 6. Context API with Reified Generics
+
+### Problem
+
+Java's `ReactContext` wraps a raw `JSObject`. Values must be manually cast after `Hooks.useContext()`. There is no type safety.
+
+### Kotlin design
 
 ```kotlin
-val SaveButton = fc("SaveButton") {
-    var saving by state(false)
-    var message by state("")
+// Create a typed context with a default value
+val ThemeCtx = createContext("light")     // TypedContext<String>
+val UserCtx = createContext<User?>(null)  // TypedContext<User?>
+val LocaleCtx = createContext("en-US")    // TypedContext<String>
 
-    button {
-        +if (saving) "Saving..." else "Save"
-        disabled(saving)
-
-        onClickAsync {
-            saving = true
-            try {
-                val result = api.save(data)   // suspend call
-                message = "Saved: ${result.id}"
-            } catch (e: Exception) {
-                message = "Error: ${e.message}"
-            } finally {
-                saving = false
+// Provide values to children
+val App = fc("App") {
+    html {
+        ThemeCtx.provide("dark") {
+            UserCtx.provide(currentUser) {
+                +MainContent()
             }
         }
     }
+}
 
-    if (message.isNotEmpty()) {
-        p { +message }
+// Consume in a child component -- fully typed, no casting
+val ThemedButton = fc("ThemedButton") {
+    val theme = useContext(ThemeCtx)      // type is String
+    val user = useContext(UserCtx)        // type is User?
+    val locale = useContext(LocaleCtx)    // type is String
+
+    html {
+        button {
+            className(if (theme == "dark") "btn-dark" else "btn-light")
+            +"${user?.name ?: "Guest"} ($locale)"
+        }
     }
 }
-```
-
-### Implementation
-
-```kotlin
-fun HtmlBuilder.onClickAsync(handler: suspend CoroutineScope.() -> Unit) {
-    onClick {
-        componentScope.launch { handler() }
-    }
-}
-```
-
-### 4e. `produceState` — Compose-Inspired Async State
-
-A convenience that combines state creation and async initialization:
-
-```kotlin
-val userProfile = produceState<UserProfile?>(null, userId) {
-    value = api.fetchUser(userId)   // suspend — assigns to state when complete
-}
-
-// userProfile is immediately null, then updates when fetch completes
-```
-
-### Implementation
-
-```kotlin
-fun <T> ComponentScope.produceState(
-    initialValue: T,
-    vararg keys: Any?,
-    producer: suspend ProduceStateScope<T>.() -> Unit
-): ReadOnlyProperty<Any?, T> {
-    val stateDelegate = state(initialValue)
-
-    launchedEffect(*keys) {
-        val scope = ProduceStateScope(stateDelegate)
-        scope.producer()
-    }
-
-    return stateDelegate
-}
-
-class ProduceStateScope<T>(private val delegate: StateDelegate<T>) {
-    var value: T
-        get() = delegate.getValue(null, /* ... */)
-        set(v) = delegate.setValue(null, /* ... */, v)
-}
-```
-
----
-
-## 5. Context API with Reified Generics
-
-Type-safe context without casting, using Kotlin's reified inline functions.
-
-### Java (current)
-
-```java
-ReactContext themeContext = ReactContext.create();
-// Set: themeContext.provide(React.stringToJS("dark"), children...)
-// Get: String theme = React.jsToString(Hooks.useContext(themeContext.jsContext()));
-```
-
-### Kotlin DSL
-
-```kotlin
-// Create — type is inferred
-val ThemeContext = createContext("light")     // TypedContext<String>
-val UserContext = createContext<User?>(null)  // TypedContext<User?>
-
-// Provide — type-safe value
-ThemeContext.provide("dark") {
-    +App
-}
-
-// Consume — no cast needed
-val theme: String = useContext(ThemeContext)
 ```
 
 ### Implementation
@@ -692,167 +924,441 @@ val theme: String = useContext(ThemeContext)
 ```kotlin
 class TypedContext<T>(
     internal val reactContext: ReactContext,
-    private val serialize: (T) -> JSObject,
-    private val deserialize: (JSObject) -> T
+    private val fromJS: (JSObject) -> T,
+    private val toJS: (T) -> JSObject
 ) {
-    fun provide(value: T, block: HtmlBuilder.() -> Unit): ReactElement {
-        val children = HtmlBuilder("fragment").apply(block).build()
-        return reactContext.provide(serialize(value), children)
+    /**
+     * Provider DSL: wraps children with this context value.
+     */
+    fun HtmlBuilder.provide(value: T, block: HtmlBuilder.() -> Unit) {
+        val jsValue = toJS(value)
+        val childBuilder = HtmlBuilder().apply(block)
+        val childElements = childBuilder.children.toTypedArray() as Array<JSObject>
+        val element = reactContext.provide(jsValue, *childBuilder.children.toTypedArray())
+        children.add(element)
+    }
+
+    /**
+     * Read the current context value inside a ComponentScope.
+     */
+    fun use(): T {
+        val raw = Hooks.useContext(reactContext.jsContext())
+        return fromJS(raw)
     }
 }
 
+// --- Factory functions using reified generics ---
+
 inline fun <reified T> createContext(defaultValue: T): TypedContext<T> {
-    val serializer = jsSerializer<T>()
-    val deserializer = jsDeserializer<T>()
-    val reactCtx = ReactContext.create(serializer(defaultValue))
-    return TypedContext(reactCtx, serializer, deserializer)
+    val jsDefault = toJSObject(defaultValue)
+    val ctx = ReactContext.create(jsDefault)
+
+    return TypedContext(
+        reactContext = ctx,
+        fromJS = { js -> fromJSObject<T>(js) },
+        toJS = { value -> toJSObject(value) }
+    )
 }
 
-fun <T> ComponentScope.useContext(ctx: TypedContext<T>): T {
-    val jsValue = Hooks.useContext(ctx.reactContext.jsContext())
-    return ctx.deserialize(jsValue)
-}
+// ComponentScope extension for ergonomic consumption
+inline fun <reified T> ComponentScope.useContext(ctx: TypedContext<T>): T = ctx.use()
 ```
 
 ---
 
-## 6. Style DSL
+## 7. Style DSL
 
-Type-safe inline styles as a nested builder instead of raw JSObject manipulation.
+### Problem
+
+Java styles require manually constructing a `JSObject` and calling `React.setProperty()` for each CSS property. No type safety, no autocompletion.
+
+### Kotlin design
+
+```kotlin
+val StyledComponent = fc("StyledComponent") {
+    html {
+        div {
+            style {
+                backgroundColor = "#f0f0f0"
+                padding = "20px"
+                borderRadius = "8px"
+                display = Display.FLEX
+                flexDirection = FlexDirection.COLUMN
+                gap = "12px"
+            }
+            h1 {
+                style { color = "#333"; fontSize = "24px" }
+                +"Styled heading"
+            }
+        }
+    }
+}
+```
+
+Shorthand for quick inline styles:
 
 ```kotlin
 div {
-    style {
-        backgroundColor = "#282c34"
-        color = "white"
-        padding = "20px"
-        display = Display.Flex
-        justifyContent = JustifyContent.Center
-        alignItems = AlignItems.Center
-        gap = "12px"
-        borderRadius = "8px"
-    }
-    +"Styled content"
+    css("background: red; padding: 10px; color: white")
+    +"Quick styled div"
 }
 ```
 
 ### Implementation
 
 ```kotlin
-@HtmlDsl
 class StyleBuilder {
-    private val styleObj = React.createObject()
+    private val obj: JSObject = React.createObject()
 
-    var backgroundColor: String by styleProperty("backgroundColor")
-    var color: String by styleProperty("color")
-    var padding: String by styleProperty("padding")
-    var margin: String by styleProperty("margin")
-    var border: String by styleProperty("border")
-    var borderRadius: String by styleProperty("borderRadius")
-    var fontSize: String by styleProperty("fontSize")
-    var fontWeight: String by styleProperty("fontWeight")
-    var gap: String by styleProperty("gap")
-    var width: String by styleProperty("width")
-    var height: String by styleProperty("height")
-    // ... all CSS properties
+    // --- Layout ---
+    var display: Display? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "display", it.value) } }
+    var flexDirection: FlexDirection? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "flexDirection", it.value) } }
+    var justifyContent: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "justifyContent", it) } }
+    var alignItems: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "alignItems", it) } }
+    var flexWrap: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "flexWrap", it) } }
+    var gap: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "gap", it) } }
 
-    var display: Display by enumStyleProperty("display")
-    var justifyContent: JustifyContent by enumStyleProperty("justifyContent")
-    var alignItems: AlignItems by enumStyleProperty("alignItems")
-    var flexDirection: FlexDirection by enumStyleProperty("flexDirection")
-    // ... enum-typed properties
+    // --- Sizing ---
+    var width: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "width", it) } }
+    var height: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "height", it) } }
+    var minWidth: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "minWidth", it) } }
+    var maxWidth: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "maxWidth", it) } }
 
-    internal fun build(): JSObject = styleObj
+    // --- Spacing ---
+    var margin: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "margin", it) } }
+    var padding: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "padding", it) } }
+    var marginTop: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "marginTop", it) } }
+    var marginBottom: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "marginBottom", it) } }
+    var paddingTop: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "paddingTop", it) } }
+    var paddingBottom: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "paddingBottom", it) } }
 
-    private fun styleProperty(name: String) = object : ReadWriteProperty<StyleBuilder, String> {
-        override fun getValue(thisRef: StyleBuilder, property: KProperty<*>) = ""
-        override fun setValue(thisRef: StyleBuilder, property: KProperty<*>, value: String) {
-            React.setProperty(styleObj, name, value)
-        }
+    // --- Colors ---
+    var color: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "color", it) } }
+    var backgroundColor: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "backgroundColor", it) } }
+
+    // --- Typography ---
+    var fontSize: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "fontSize", it) } }
+    var fontWeight: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "fontWeight", it) } }
+    var textAlign: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "textAlign", it) } }
+    var lineHeight: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "lineHeight", it) } }
+
+    // --- Border ---
+    var border: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "border", it) } }
+    var borderRadius: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "borderRadius", it) } }
+
+    // --- Position ---
+    var position: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "position", it) } }
+    var top: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "top", it) } }
+    var left: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "left", it) } }
+    var right: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "right", it) } }
+    var bottom: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "bottom", it) } }
+
+    // --- Other ---
+    var overflow: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "overflow", it) } }
+    var cursor: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "cursor", it) } }
+    var opacity: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "opacity", it) } }
+    var transition: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "transition", it) } }
+    var boxShadow: String? = null
+        set(value) { field = value; value?.let { React.setProperty(obj, "boxShadow", it) } }
+
+    // --- Generic fallback for properties not listed above ---
+    fun set(property: String, value: String) {
+        React.setProperty(obj, property, value)
     }
+
+    fun build(): JSObject = obj
 }
+
+// --- Type-safe enums for common values ---
 
 enum class Display(val value: String) {
-    Flex("flex"), Grid("grid"), Block("block"),
-    InlineBlock("inline-block"), None("none")
+    FLEX("flex"), BLOCK("block"), INLINE("inline"),
+    INLINE_BLOCK("inline-block"), GRID("grid"), NONE("none"),
+    INLINE_FLEX("inline-flex")
 }
 
-// Add to HtmlBuilder:
-fun HtmlBuilder.style(block: StyleBuilder.() -> Unit) {
-    val style = StyleBuilder().apply(block).build()
-    React.setProperty(props, "style", style)
+enum class FlexDirection(val value: String) {
+    ROW("row"), COLUMN("column"),
+    ROW_REVERSE("row-reverse"), COLUMN_REVERSE("column-reverse")
 }
-```
 
-### Quick inline style shorthand
+// --- Shorthand CSS parser ---
 
-```kotlin
-// For simple one-off styles
-div {
-    css("background: red; padding: 10px")
-    +"Quick styled"
+fun HtmlBuilder.css(cssString: String) {
+    val styleObj = React.createObject()
+    cssString.split(";").map { it.trim() }.filter { it.isNotEmpty() }.forEach { decl ->
+        val (prop, value) = decl.split(":").map { it.trim() }
+        val camelProp = prop.replace(Regex("-([a-z])")) { it.groupValues[1].uppercase() }
+        React.setProperty(styleObj, camelProp, value)
+    }
+    React.setProperty(props, "style", styleObj)
 }
 ```
 
 ---
 
-## 7. Extension Functions for Reusable Components
+## 8. Conditional Rendering and Lists
 
-Kotlin extension functions on `HtmlBuilder` create composable UI fragments
-without any registration, wrapping, or overhead — they're just functions.
+### Problem
+
+Java requires ternary-like patterns and manual array construction for lists. Conditional rendering is awkward with `condition ? element : null` patterns that do not translate cleanly to Java.
+
+### Kotlin design
+
+Natural Kotlin control flow works inside the DSL:
 
 ```kotlin
-// Define a reusable card component
-fun HtmlBuilder.card(
-    title: String,
-    elevation: Int = 1,
-    block: HtmlBuilder.() -> Unit
-) {
-    div {
-        className("card")
-        style {
-            borderRadius = "8px"
-            boxShadow = "0 ${elevation * 2}px ${elevation * 4}px rgba(0,0,0,0.1)"
-            padding = "16px"
-        }
-        if (title.isNotEmpty()) {
-            h3 {
-                style { marginTop = "0" }
-                +title
+val Dashboard = fc("Dashboard") {
+    var loggedIn by state(true)
+    var items by state(listOf("Alpha", "Bravo", "Charlie"))
+    var selectedTab by state("home")
+
+    html {
+        div {
+            // --- if/else ---
+            if (loggedIn) {
+                h1 { +"Welcome back!" }
+            } else {
+                h1 { +"Please log in" }
+            }
+
+            // --- when ---
+            when (selectedTab) {
+                "home" -> div { +"Home content" }
+                "settings" -> div { +"Settings content" }
+                "profile" -> div { +"Profile content" }
+            }
+
+            // --- for loop with keys ---
+            ul {
+                for ((index, item) in items.withIndex()) {
+                    li(key = item) { +"$index: $item" }
+                }
+            }
+
+            // --- items() helper for keyed lists ---
+            ul {
+                items(items, key = { it }) { item ->
+                    li { +item }
+                }
+            }
+
+            // --- show() convenience ---
+            show(loggedIn) {
+                p { +"This is only visible when logged in" }
             }
         }
+    }
+}
+```
+
+### Implementation
+
+```kotlin
+/**
+ * Renders a keyed list of items. Each item gets a React key derived
+ * from the keySelector function.
+ */
+inline fun <T> HtmlBuilder.items(
+    list: List<T>,
+    key: (T) -> Any = { it.hashCode() },
+    crossinline render: HtmlBuilder.(T) -> Unit
+) {
+    for (item in list) {
+        val itemKey = key(item).toString()
+        val builder = HtmlBuilder().apply { render(item) }
+        React.setProperty(builder.props, "key", itemKey)
+        // Wrap in a fragment with key if multiple children,
+        // or set key on the single child
+        if (builder.children.size == 1) {
+            children.add(builder.children[0])  // key already set on props
+        } else {
+            val fragment = React.createElement(
+                React.fragment(),
+                builder.props,
+                builder.children.toTypedArray() as Array<JSObject>
+            )
+            children.add(fragment)
+        }
+    }
+}
+
+/**
+ * Conditionally renders content.
+ */
+inline fun HtmlBuilder.show(condition: Boolean, block: HtmlBuilder.() -> Unit) {
+    if (condition) {
         block()
     }
 }
 
-// Define a reusable labeled input
+/**
+ * Conditionally renders content with an else branch.
+ */
+inline fun HtmlBuilder.showOrElse(
+    condition: Boolean,
+    block: HtmlBuilder.() -> Unit,
+    elseBlock: HtmlBuilder.() -> Unit
+) {
+    if (condition) block() else elseBlock()
+}
+```
+
+---
+
+## 9. Extension Functions for Reusable Components
+
+### Problem
+
+Java requires creating a full `ReactView` subclass or `React.wrapComponent()` call even for small reusable UI fragments. There is no lightweight composition mechanism.
+
+### Kotlin design
+
+Extension functions on `HtmlBuilder` serve as lightweight composable "components" with zero overhead -- no React component boundary, no hook rules, just code reuse:
+
+```kotlin
+// --- Define a reusable card component ---
+fun HtmlBuilder.card(title: String, block: HtmlBuilder.() -> Unit) {
+    div {
+        className("card")
+        style {
+            border = "1px solid #ddd"
+            borderRadius = "8px"
+            padding = "16px"
+            marginBottom = "12px"
+        }
+        h3 {
+            style { marginTop = "0" }
+            +title
+        }
+        div {
+            className("card-body")
+            block()  // Render caller's children here
+        }
+    }
+}
+
+// --- Define a reusable badge ---
+fun HtmlBuilder.badge(text: String, color: String = "#007bff") {
+    span {
+        style {
+            backgroundColor = color
+            this.color = "white"
+            padding = "2px 8px"
+            borderRadius = "12px"
+            fontSize = "12px"
+        }
+        +text
+    }
+}
+
+// --- Define a labeled input ---
 fun HtmlBuilder.labeledInput(
     label: String,
     value: String,
-    type: String = "text",
-    onChange: (ChangeEvent) -> Unit
+    onChange: ChangeEventHandler
 ) {
     div {
         className("form-group")
         label { +label }
-        input(type) {
+        input {
+            type("text")
             value(value)
             onChange(onChange)
         }
     }
 }
 
-// Usage — compose naturally
-val SignupForm = fc("SignupForm") {
-    var name by state("")
-    var email by state("")
+// --- Usage: compose naturally ---
+val UserCard = fc("UserCard") {
+    var name by state("Alice")
 
-    card("Sign Up", elevation = 2) {
-        form {
-            onSubmit { e -> e.preventDefault() }
-            labeledInput("Name", name) { name = it.target.value }
-            labeledInput("Email", email, type = "email") { email = it.target.value }
-            button { +"Submit" }
+    html {
+        card("User Profile") {
+            p { +"Name: $name" }
+            badge("Active", "#28a745")
+            labeledInput("Change name:", name) { e ->
+                name = e.value
+            }
+        }
+    }
+}
+```
+
+These compose freely because they are just functions -- no registration, no wrapping, no component boundary overhead.
+
+---
+
+## 10. Operator Overloading
+
+### Design
+
+```kotlin
+// --- unaryPlus on String: creates a text node ---
+operator fun String.unaryPlus() {
+    children.add(Html.text(this))
+}
+
+// --- unaryPlus on ReactElement: adds as child ---
+operator fun ReactElement.unaryPlus() {
+    children.add(this)
+}
+
+// --- unaryPlus on List<ReactElement>: splices all as children ---
+operator fun List<ReactElement>.unaryPlus() {
+    children.addAll(this)
+}
+
+// --- unaryPlus on FunctionComponent: renders with no props ---
+operator fun FunctionComponent.unaryPlus() {
+    children.add(this())
+}
+```
+
+### Usage
+
+```kotlin
+val App = fc("App") {
+    html {
+        div {
+            +"Hello World"                        // String -> text node
+            +Counter()                            // Component invocation
+            +Greeting(name = "Alice")             // Typed component
+            +listOf(itemA, itemB, itemC)          // Splice a list
+            +Html.hr()                            // Raw ReactElement
         }
     }
 }
@@ -860,41 +1366,30 @@ val SignupForm = fc("SignupForm") {
 
 ---
 
-## 8. Operator Overloading and Element Composition
+## 11. Ref Delegation
 
-### Rendering child components with `+`
+### Problem
 
-```kotlin
-div {
-    +Counter                          // render a component
-    +Greeting(name = "Alice")         // render with typed props
-    +listOf(item1, item2, item3)      // splice a list of elements
-}
-```
+Java refs require `Hooks.useRef(null)` returning a `RefHandle`, then `refHandle.getCurrent()` / `refHandle.setCurrent()`. Passing to elements requires `refHandle.raw()`.
 
-### Conditional rendering helpers
+### Kotlin design
 
 ```kotlin
-div {
-    // Natural Kotlin — just use if/when
-    if (isLoggedIn) {
-        +Dashboard
-    } else {
-        +LoginForm
-    }
+val FocusInput = fc("FocusInput") {
+    var inputRef by ref<HTMLInputElement>(null)
 
-    // when expression
-    when (status) {
-        Status.LOADING -> p { +"Loading..." }
-        Status.ERROR   -> p { className("error"); +"Failed" }
-        Status.SUCCESS -> +DataView
-    }
-
-    // Convenience helper for show/hide
-    show(items.isNotEmpty()) {
-        ul {
-            for (item in items) {
-                li(key = item.id) { +item.name }
+    html {
+        div {
+            input {
+                type("text")
+                placeholder("Type here...")
+                ref(inputRef)   // Attach ref to element
+            }
+            button {
+                +"Focus Input"
+                onClick {
+                    inputRef?.focus()  // Direct access, null-safe
+                }
             }
         }
     }
@@ -904,166 +1399,192 @@ div {
 ### Implementation
 
 ```kotlin
-// In HtmlBuilder:
+class RefDelegate<T : JSObject?>(
+    private val handle: RefHandle
+) : ReadWriteProperty<Any?, T?> {
 
-/** Render a component (JSObject) as a child */
-operator fun JSObject.unaryPlus() {
-    children.add(Html.component(this))
-}
-
-/** Render a ReactElement as a child */
-operator fun ReactElement.unaryPlus() {
-    children.add(this)
-}
-
-/** Splice a list of elements as children */
-operator fun List<ReactElement>.unaryPlus() {
-    children.addAll(this)
-}
-
-/** Conditional rendering helper */
-fun HtmlBuilder.show(condition: Boolean, block: HtmlBuilder.() -> Unit) {
-    if (condition) block()
-}
-```
-
----
-
-## 9. Ref Delegation
-
-Refs as delegated properties, matching the state delegation pattern:
-
-```kotlin
-val FocusInput = fc("FocusInput") {
-    var inputRef by ref<HTMLInputElement>()
-
-    div {
-        input("text") {
-            ref(inputRef)
-            placeholder("Type here...")
-        }
-        button {
-            +"Focus"
-            onClick { inputRef?.focus() }
-        }
-    }
-}
-```
-
-### Implementation
-
-```kotlin
-class RefDelegate<T>(initial: T?) : ReadWriteProperty<Any?, T?> {
-    internal val handle: RefHandle = when (initial) {
-        null    -> Hooks.useRef(null)
-        is Int  -> Hooks.useRefInt(initial)
-        else    -> Hooks.useRef(initial as JSObject)
-    }
-
+    @Suppress("UNCHECKED_CAST")
     override fun getValue(thisRef: Any?, property: KProperty<*>): T? =
         handle.current as? T
 
     override fun setValue(thisRef: Any?, property: KProperty<*>, value: T?) {
-        handle.setCurrent(value as? JSObject)
-    }
-}
-
-fun <T : Any> ComponentScope.ref(initial: T? = null): RefDelegate<T> =
-    RefDelegate(initial)
-```
-
----
-
-## 10. Memo and Callback Hooks
-
-```kotlin
-val ExpensiveComponent = fc("ExpensiveComponent") {
-    val items = prop<List<String>>("items")
-    val filter = prop<String>("filter")
-
-    // Memoized computation — only recalculates when deps change
-    val filtered = memo(items, filter) {
-        items.filter { it.contains(filter, ignoreCase = true) }
-    }
-
-    // Memoized callback — stable reference across renders
-    val handleClick = callback(filtered) {
-        println("Filtered: ${filtered.size} items")
-    }
-
-    ul {
-        for (item in filtered) {
-            li { +item }
+        if (value != null) {
+            handle.setCurrent(value)
         }
     }
+
+    /** Returns the raw JS ref object for passing to element props. */
+    fun raw(): JSObject = handle.raw()
 }
+
+fun <T : JSObject> ComponentScope.ref(initial: T? = null): RefDelegate<T> =
+    RefDelegate(Hooks.useRef(initial))
 ```
 
 ---
 
-## 11. Routing DSL (Future)
+## 12. Routing DSL (future)
+
+A routing layer can be built on top of the component system. This is a future module (`teavm-react-kotlin-router`) but the DSL shape is designed now for consistency.
 
 ```kotlin
 val App = fc("App") {
-    router {
-        route("/") { HomePage() }
-        route("/about") { AboutPage() }
-        route("/users/:id") { params ->
-            UserPage(userId = params["id"]!!)
+    html {
+        router {
+            route("/") {
+                +HomePage()
+            }
+            route("/about") {
+                +AboutPage()
+            }
+            route("/users/:id") { params ->
+                +UserPage(userId = params["id"]!!)
+            }
+            route("/settings") {
+                +SettingsPage()
+            }
+            notFound {
+                h1 { +"404 - Page Not Found" }
+            }
         }
-        notFound { NotFoundPage() }
     }
+}
+```
+
+### Implementation sketch
+
+```kotlin
+@HtmlDsl
+class RouterBuilder {
+    internal val routes = mutableListOf<RouteDefinition>()
+    internal var notFoundHandler: (HtmlBuilder.() -> Unit)? = null
+
+    fun route(path: String, render: HtmlBuilder.(Map<String, String>) -> Unit) {
+        routes.add(RouteDefinition(path, render))
+    }
+
+    fun route(path: String, render: HtmlBuilder.() -> Unit) {
+        routes.add(RouteDefinition(path) { _ -> render() })
+    }
+
+    fun notFound(render: HtmlBuilder.() -> Unit) {
+        notFoundHandler = render
+    }
+}
+
+data class RouteDefinition(
+    val path: String,
+    val render: HtmlBuilder.(Map<String, String>) -> Unit
+)
+
+fun HtmlBuilder.router(block: RouterBuilder.() -> Unit) {
+    val routerBuilder = RouterBuilder().apply(block)
+    // Implementation would use window.location and History API
+    // to match current path against routes and render the matching one.
+    // This wraps a React component that uses useState for the current path
+    // and useEffect to listen for popstate events.
 }
 ```
 
 ---
 
-## 12. Full Example Application
+## 13. Full Example Application
 
-A complete app showcasing all features working together:
+A complete application demonstrating all features working together:
 
 ```kotlin
-// --- Typed Context ---
-val ThemeContext = createContext("light")
+package ca.weblite.teavmreact.kotlin.demo
 
-// --- Reusable UI extensions ---
+import ca.weblite.teavmreact.kotlin.component.*
+import ca.weblite.teavmreact.kotlin.dsl.*
+import ca.weblite.teavmreact.kotlin.state.*
+import ca.weblite.teavmreact.kotlin.hooks.*
+import ca.weblite.teavmreact.kotlin.coroutines.*
+import ca.weblite.teavmreact.kotlin.context.*
+import ca.weblite.teavmreact.kotlin.style.*
+import ca.weblite.teavmreact.core.ReactDOM
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
+
+// ---- Data classes for typed props ----
+
+data class TodoItemProps(
+    val text: String,
+    val completed: Boolean = false,
+    val onToggle: (() -> Unit)? = null,
+    val onDelete: (() -> Unit)? = null
+)
+
+data class Todo(val id: Int, val text: String, val completed: Boolean = false)
+
+// ---- Typed context ----
+
+val ThemeCtx = createContext("light")
+
+// ---- Extension function component: reusable card ----
+
 fun HtmlBuilder.card(title: String, block: HtmlBuilder.() -> Unit) {
-    val theme = useContext(ThemeContext)
     div {
-        className("card card-$theme")
         style {
+            border = "1px solid #ddd"
             borderRadius = "8px"
             padding = "16px"
-            backgroundColor = if (theme == "dark") "#1e1e1e" else "#ffffff"
-            color = if (theme == "dark") "#e0e0e0" else "#333333"
+            marginBottom = "16px"
+            boxShadow = "0 2px 4px rgba(0,0,0,0.1)"
         }
-        h3 { +title }
+        h3 {
+            style { marginTop = "0"; color = "#333" }
+            +title
+        }
         block()
     }
 }
 
-// --- Counter component ---
-val Counter = fc("Counter") {
-    var count by state(0)
-    var step by state(1)
+// ---- Typed component with props ----
 
-    card("Counter") {
-        p { +"Count: $count (step: $step)" }
-        div {
-            className("button-group")
-            button { +"-"; onClick { count -= step } }
-            button { +"+"; onClick { count += step } }
-            button { +"Reset"; onClick { count = 0 } }
-        }
-        input("number") {
-            value("$step")
-            onChange { step = it.target.value.toIntOrNull() ?: 1 }
+val TodoItem = fc<TodoItemProps>("TodoItem") { props ->
+    val theme = useContext(ThemeCtx)
+    val isDark = theme == "dark"
+
+    html {
+        li {
+            style {
+                display = Display.FLEX
+                justifyContent = "space-between"
+                alignItems = "center"
+                padding = "8px 12px"
+                backgroundColor = if (isDark) "#333" else "#fff"
+                color = if (isDark) "#eee" else "#333"
+                borderBottom = "1px solid ${if (isDark) "#555" else "#eee"}"
+            }
+            span {
+                style {
+                    textDecoration = if (props.completed) "line-through" else "none"
+                    opacity = if (props.completed) "0.6" else "1"
+                    cursor = "pointer"
+                }
+                onClick { props.onToggle?.invoke() }
+                +props.text
+            }
+            button {
+                style {
+                    backgroundColor = "#dc3545"
+                    color = "white"
+                    border = "none"
+                    borderRadius = "4px"
+                    padding = "4px 8px"
+                    cursor = "pointer"
+                }
+                +"Delete"
+                onClick { props.onDelete?.invoke() }
+            }
         }
     }
 }
 
-// --- Live timer using Flow ---
-val LiveTimer = fc("LiveTimer") {
+// ---- Flow-based timer component ----
+
+val TimerWidget = fc("TimerWidget") {
     val seconds by flow {
         var t = 0
         while (true) {
@@ -1072,200 +1593,289 @@ val LiveTimer = fc("LiveTimer") {
         }
     }.collectAsState(initial = 0)
 
-    card("Live Timer") {
-        p { +"Elapsed: ${seconds}s" }
-        p { +"Minutes: ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}" }
+    val theme = useContext(ThemeCtx)
+
+    html {
+        div {
+            style {
+                padding = "8px 16px"
+                backgroundColor = if (theme == "dark") "#444" else "#f8f9fa"
+                borderRadius = "4px"
+                fontFamily = "monospace"
+                fontSize = "14px"
+            }
+            +"Uptime: ${seconds / 60}m ${seconds % 60}s"
+        }
     }
 }
 
-// --- Async data loader ---
-data class User(val id: Int, val name: String, val email: String)
+// ---- Main app with coroutine data fetching ----
 
-val UserList = fc("UserList") {
-    var users by state<List<User>>(emptyList())
+val App = fc("App") {
+    var theme by state("light")
+    var todos by state<List<Todo>>(emptyList())
+    var newTodoText by state("")
+    var nextId by state(1)
     var loading by state(true)
-    var error by state<String?>(null)
+    var filter by state("all")  // "all", "active", "completed"
 
+    // Coroutine-based data fetching on mount
     launchedEffect {
         try {
-            users = api.fetchUsers()
-            loading = false
+            val initialTodos = fetchTodos()  // suspend fun
+            todos = initialTodos
+            nextId = (initialTodos.maxOfOrNull { it.id } ?: 0) + 1
         } catch (e: Exception) {
-            error = e.message
+            // Handle error -- in production, set an error state
+        } finally {
             loading = false
         }
     }
 
-    card("Users") {
-        when {
-            loading -> p { +"Loading users..." }
-            error != null -> p { className("error"); +"Error: $error" }
-            else -> {
-                ul {
-                    for (user in users) {
-                        li(key = user.id) {
-                            strong { +user.name }
-                            +" — ${user.email}"
+    // Derived values
+    val filteredTodos = when (filter) {
+        "active" -> todos.filter { !it.completed }
+        "completed" -> todos.filter { it.completed }
+        else -> todos
+    }
+    val activeCount = todos.count { !it.completed }
+
+    html {
+        ThemeCtx.provide(theme) {
+            div {
+                style {
+                    maxWidth = "600px"
+                    margin = "0 auto"
+                    padding = "20px"
+                    fontFamily = "-apple-system, BlinkMacSystemFont, sans-serif"
+                    backgroundColor = if (theme == "dark") "#222" else "#fff"
+                    color = if (theme == "dark") "#eee" else "#333"
+                    minHeight = "100vh"
+                }
+
+                // Header with theme toggle
+                div {
+                    style {
+                        display = Display.FLEX
+                        justifyContent = "space-between"
+                        alignItems = "center"
+                        marginBottom = "20px"
+                    }
+                    h1 {
+                        style { margin = "0" }
+                        +"Todo App"
+                    }
+                    button {
+                        +"Toggle ${if (theme == "light") "Dark" else "Light"} Mode"
+                        onClick {
+                            theme = if (theme == "light") "dark" else "light"
                         }
                     }
                 }
-                p { className("muted"); +"${users.size} users loaded" }
-            }
-        }
-    }
-}
 
-// --- Todo app ---
-val TodoApp = fc("TodoApp") {
-    var todos by state(listOf("Buy milk", "Write Kotlin DSL"))
-    var input by state("")
+                // Timer widget
+                +TimerWidget()
 
-    card("Todo List") {
-        form {
-            onSubmit { e ->
-                e.preventDefault()
-                if (input.isNotBlank()) {
-                    todos = todos + input.trim()
-                    input = ""
-                }
-            }
-            div {
-                className("input-row")
-                input("text") {
-                    placeholder("Add todo...")
-                    value(input)
-                    onChange { input = it.target.value }
-                }
-                button { +"Add" }
-            }
-        }
-
-        if (todos.isEmpty()) {
-            p { className("muted"); +"Nothing to do!" }
-        } else {
-            ul {
-                for ((i, todo) in todos.withIndex()) {
-                    li(key = i) {
-                        +todo
+                // Add todo form
+                card("Add Todo") {
+                    div {
+                        style { display = Display.FLEX; gap = "8px" }
+                        input {
+                            type("text")
+                            value(newTodoText)
+                            placeholder("What needs to be done?")
+                            onChange { newTodoText = it.value }
+                            onKeyDown { e ->
+                                if (e.key == "Enter" && newTodoText.isNotBlank()) {
+                                    todos = todos + Todo(nextId, newTodoText)
+                                    nextId++
+                                    newTodoText = ""
+                                }
+                            }
+                        }
                         button {
-                            className("delete")
-                            +"\u00d7"
+                            +"Add"
+                            disabled(newTodoText.isBlank())
                             onClick {
-                                todos = todos.filterIndexed { idx, _ -> idx != i }
+                                if (newTodoText.isNotBlank()) {
+                                    todos = todos + Todo(nextId, newTodoText)
+                                    nextId++
+                                    newTodoText = ""
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
-    }
-}
 
-// --- App root ---
-val App = fc("App") {
-    var darkMode by state(false)
+                // Filter tabs
+                div {
+                    style {
+                        display = Display.FLEX
+                        gap = "8px"
+                        marginBottom = "12px"
+                    }
+                    for (tab in listOf("all", "active", "completed")) {
+                        button {
+                            +tab.replaceFirstChar { it.uppercase() }
+                            style {
+                                fontWeight = if (filter == tab) "bold" else "normal"
+                                textDecoration = if (filter == tab) "underline" else "none"
+                            }
+                            onClick { filter = tab }
+                        }
+                    }
+                    span {
+                        style { marginLeft = "auto" }
+                        +"$activeCount items left"
+                    }
+                }
 
-    ThemeContext.provide(if (darkMode) "dark" else "light") {
-        div {
-            className(if (darkMode) "app dark" else "app")
-            header {
-                h1 { +"Kotlin React App" }
-                button {
-                    +(if (darkMode) "Light Mode" else "Dark Mode")
-                    onClick { darkMode = !darkMode }
+                // Todo list
+                show(loading) {
+                    p { +"Loading todos..." }
+                }
+
+                show(!loading) {
+                    ul {
+                        style { listStyle = "none"; padding = "0"; margin = "0" }
+                        items(filteredTodos, key = { it.id }) { todo ->
+                            +TodoItem(
+                                text = todo.text,
+                                completed = todo.completed,
+                                onToggle = {
+                                    todos = todos.map {
+                                        if (it.id == todo.id) it.copy(completed = !it.completed)
+                                        else it
+                                    }
+                                },
+                                onDelete = {
+                                    todos = todos.filter { it.id != todo.id }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Save button with async handler
+                show(!loading && todos.isNotEmpty()) {
+                    button {
+                        style {
+                            marginTop = "16px"
+                            padding = "8px 16px"
+                            backgroundColor = "#28a745"
+                            color = "white"
+                            border = "none"
+                            borderRadius = "4px"
+                            cursor = "pointer"
+                        }
+                        +"Save All"
+                        onClickAsync {
+                            saveTodos(todos)  // suspend fun
+                        }
+                    }
                 }
             }
-            div {
-                className("grid")
-                +Counter
-                +LiveTimer
-                +UserList
-                +TodoApp
-            }
         }
     }
 }
 
-// --- Entry point ---
+// ---- Suspend functions (would be implemented with fetch API) ----
+
+suspend fun fetchTodos(): List<Todo> {
+    delay(500)  // Simulate network
+    return listOf(
+        Todo(1, "Learn teavm-react"),
+        Todo(2, "Build Kotlin DSL"),
+        Todo(3, "Write tests")
+    )
+}
+
+suspend fun saveTodos(todos: List<Todo>) {
+    delay(300)  // Simulate save
+}
+
+// ---- Entry point ----
+
 fun main() {
-    val root = ReactDOM.createRoot(document.getElementById("root")!!)
-    root.render(component(App))
+    ReactDOM.renderToId(App(), "root")
 }
 ```
 
 ---
 
-## 13. Comparison Table
+## 14. Module Structure
+
+```
+teavm-react-kotlin/
+  pom.xml                          -- Maven module depending on teavm-react-core
+  src/main/kotlin/ca/weblite/teavmreact/kotlin/
+    dsl/
+      HtmlDsl.kt                   -- @HtmlDsl DslMarker annotation
+      HtmlBuilder.kt               -- HtmlBuilder class, text/element unaryPlus
+      Elements.kt                  -- div(), span(), h1(), p(), button(), etc.
+      VoidElements.kt              -- hr(), br()
+    state/
+      StateDelegate.kt             -- ReadWriteProperty for React state
+      StateType.kt                 -- Enum: INT, STRING, BOOL, DOUBLE, OBJECT
+    component/
+      FunctionComponent.kt         -- fc(), FunctionComponent, operator invoke
+      TypedFunctionComponent.kt    -- fc<P>(), TypedFunctionComponent<P>
+      ComponentScope.kt            -- Receiver class with state/effect/memo/ref/context
+    hooks/
+      EffectDsl.kt                 -- effect(), EffectScope, onCleanup
+      MemoDsl.kt                   -- memo() with typed return
+      CallbackDsl.kt               -- callback() for memoized lambdas
+    coroutines/
+      ReactCoroutineScope.kt       -- CoroutineScope tied to component lifecycle
+      LaunchedEffect.kt            -- launchedEffect() with structured concurrency
+      FlowCollector.kt             -- Flow<T>.collectAsState(), FlowStateProvider
+      ProduceState.kt              -- produceState(), ProduceStateScope
+      AsyncHandlers.kt             -- onClickAsync(), onSubmitAsync(), etc.
+    context/
+      TypedContext.kt              -- TypedContext<T> wrapper around ReactContext
+      ContextFactory.kt            -- createContext<T>() reified factory
+      ProviderDsl.kt               -- TypedContext<T>.provide() extension
+    style/
+      StyleBuilder.kt              -- CSS property setters, build() -> JSObject
+      CssEnums.kt                  -- Display, FlexDirection, Position, etc.
+      CssShorthand.kt              -- css() string parser
+    props/
+      PropsBridge.kt               -- propsToJS(), propsFromJS() inline functions
+      PropsMarker.kt               -- Optional annotation for props data classes
+    ref/
+      RefDelegate.kt               -- ReadWriteProperty for React refs
+    util/
+      JSConversions.kt             -- toJSObject(), fromJSObject(), toJSDep()
+      OperatorExtensions.kt        -- unaryPlus overloads for JSObject, List
+      ListHelpers.kt               -- items(), show(), showOrElse()
+```
+
+---
+
+## 15. Comparison Table
 
 | Feature | Java API | Kotlin DSL |
 |---|---|---|
+| **State declaration** | `StateHandle<Integer> count = Hooks.useState(0);` | `var count by state(0)` |
 | **State read** | `count.getInt()` | `count` |
 | **State write** | `count.setInt(5)` | `count = 5` |
-| **State update** | `count.updateInt(c -> c + 1)` | `count++` |
-| **Children** | `.child(H1.create().text("Hi"))` | `h1 { +"Hi" }` |
-| **Events** | `.onClick(e -> { ... })` | `onClick { ... }` |
-| **Async events** | Manual callback chains | `onClickAsync { api.save() }` |
-| **Conditionals** | Ternary / if-else with createElement | `if (x) { p { +"yes" } }` |
-| **Lists** | `mapToElements(list, ...)` | `for (item in list) { li { +item } }` |
-| **String formatting** | `"Count: " + count.getInt()` | `"Count: $count"` |
-| **Props** | Raw `JSObject` | Data classes + named args |
-| **Context create** | `ReactContext.create()` | `createContext<String>("default")` |
-| **Context consume** | `React.jsToString(Hooks.useContext(...))` | `useContext(ThemeCtx)` — typed |
-| **Composition** | New builder class or static method | Extension functions |
-| **Component def** | `React.wrapComponent(props -> {...}, "Name")` | `fc("Name") { ... }` |
-| **Effects** | `Hooks.useEffect(() -> { ... })` | `effect { ... }` |
-| **Async effects** | Manual timer/callback management | `launchedEffect { delay(1000) }` |
-| **Data fetching** | Callback-based with manual state | `launchedEffect { data = api.fetch() }` |
-| **Reactive streams** | Not available | `flow { emit(x) }.collectAsState(0)` |
-| **Suspending handlers** | Not available | `onClickAsync { api.save() }` |
-| **Styles** | `React.setProperty(props, "style", obj)` | `style { padding = "20px" }` |
-| **Refs** | `Hooks.useRef(null)` / `.getCurrent()` | `var ref by ref<T>()` / `ref?.focus()` |
-
----
-
-## 14. TeaVM Compatibility Notes
-
-All features in this design compile to standard JVM bytecode that TeaVM can transpile:
-
-- **Delegated properties** — compiled to getter/setter methods; no reflection needed
-- **Lambda with receiver** — compiled to regular lambdas with extra parameter; no special runtime
-- **Extension functions** — compiled to static methods; zero overhead
-- **Reified generics** — inlined at compile time; no runtime reflection
-- **Operator overloading** — compiled to regular method calls
-- **@DslMarker** — compile-time only annotation; no runtime effect
-- **Coroutines** — TeaVM supports `kotlinx.coroutines`; state machine transformation
-  happens at the Kotlin compiler level, producing standard bytecode
-- **Flow** — built on coroutines; same compatibility story
-- **Data classes** — compiled to regular classes with `equals`/`hashCode`/`copy`
-
-### Dependencies
-
-```xml
-<dependency>
-    <groupId>org.jetbrains.kotlinx</groupId>
-    <artifactId>kotlinx-coroutines-core</artifactId>
-    <version>${coroutines.version}</version>
-</dependency>
-```
-
-The Kotlin module would use the `kotlin-maven-plugin` alongside the existing
-`teavm-maven-plugin`, compiling Kotlin to JVM bytecode first, then letting
-TeaVM transpile it to JavaScript.
-
----
-
-## 15. Implementation Priorities
-
-Recommended implementation order, from highest to lowest impact:
-
-1. **`state()` delegation** — Immediate, massive DX improvement
-2. **HTML builder DSL** — The visual transformation that makes code readable
-3. **`fc()` component definition** — Clean component API
-4. **`effect()` and `launchedEffect()`** — Coroutine-based lifecycle
-5. **`Flow.collectAsState()`** — Reactive state from streams
-6. **Typed context** — Eliminates JSObject casting
-7. **Style DSL** — Nice-to-have polish
-8. **Typed props** — Data class bridge
-9. **`onClickAsync`** — Suspending event handlers
-10. **`produceState`** — Convenience API
-11. **Routing DSL** — Future scope
+| **Children** | `div(child1, child2)` or `.child(x).child(y)` | `div { +child1; +child2 }` |
+| **Text nodes** | `Html.text("hello")` or `div("hello")` | `+"hello"` |
+| **Event handlers** | `.onClick(e -> { ... }).build()` | `onClick { ... }` |
+| **Async events** | Callback hell or manual promise handling | `onClickAsync { val r = api.call() }` |
+| **Conditionals** | `condition ? elementA : elementB` (awkward in Java) | `if (cond) { elementA } else { elementB }` |
+| **Lists** | `Html.mapToElements(list, item -> li(item))` | `items(list) { li { +it } }` or `for` loop |
+| **String interpolation** | `"Count: " + count.getInt()` | `"Count: $count"` |
+| **Props** | `React.createObject()` + `setProperty()` per field | `data class Props(...)` + named args |
+| **Context create** | `ReactContext.create(jsValue)` | `createContext<String>("light")` |
+| **Context read** | `(String) Hooks.useContext(ctx)` (manual cast) | `val theme = useContext(ThemeCtx)` (typed) |
+| **Context provide** | `ctx.provide(jsValue, child1, child2)` | `ThemeCtx.provide("dark") { ... }` |
+| **Composition** | New class or `React.wrapComponent()` | Extension function on `HtmlBuilder` |
+| **Component def** | `React.wrapComponent(props -> { ... }, "Name")` | `val C = fc("Name") { ... }` |
+| **Effects** | `Hooks.useEffect(() -> { ... return cleanup; })` | `effect { ... onCleanup { } }` |
+| **Async effects** | Not supported (must use JS Promise interop) | `launchedEffect { val x = fetchData() }` |
+| **Data fetching** | Manual XHR/fetch + callback nesting | `launchedEffect { data = api.get() }` |
+| **Reactive streams** | Not available | `val x by flow { emit(v) }.collectAsState(init)` |
+| **Refs** | `RefHandle ref = Hooks.useRef(null); ref.getCurrent()` | `var ref by ref<T>(null); ref?.focus()` |
+| **Styles** | `React.createObject()` + `setProperty()` per prop | `style { backgroundColor = "#fff" }` |
+| **Memo** | `Hooks.useMemo(factory, deps)` (returns JSObject) | `val x = memo(deps) { compute() }` (typed) |
