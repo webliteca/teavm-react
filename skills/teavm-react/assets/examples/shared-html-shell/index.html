@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="TeaVM React Application" />
+    <title>TeaVM React App</title>
+
+    <!-- ========== React 18 CDN ========== -->
+    <!-- Development builds (include warnings and are slower): -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Production builds (uncomment these and remove the development lines above): -->
+    <!-- <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script> -->
+    <!-- <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script> -->
+
+    <!-- Minimal CSS reset -->
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+    </style>
+</head>
+<body>
+    <!--
+        The root element where React mounts your component tree.
+        TeaVM code calls: ReactDOM.createRoot(document.getElementById("root"))
+    -->
+    <div id="root"></div>
+
+    <!--
+        TeaVM-compiled JavaScript output.
+        This must load AFTER the React CDN scripts above so that
+        the global React and ReactDOM objects are available.
+        The default TeaVM output file is "classes.js".
+    -->
+    <script src="js/classes.js"></script>
+    <script>main([]);</script>
+</body>
+</html>
