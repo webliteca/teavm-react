@@ -24,15 +24,27 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: PACKAGES_READ_TOKEN
 
       - name: Compile all modules
         run: mvn compile -B
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          PACKAGES_READ_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
       - name: Run unit tests (core + kotlin)
         run: mvn test -pl teavm-react-core,teavm-react-kotlin -B
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          PACKAGES_READ_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
       - name: Run integration tests (TeaVM compilation + verification)
         run: |
           mvn install -N -B
           mvn install -pl teavm-react-core,teavm-react-kotlin -DskipTests -B
           mvn process-classes test -pl teavm-react-demo -B
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          PACKAGES_READ_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}

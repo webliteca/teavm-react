@@ -60,6 +60,22 @@ teavm-react-kotlin/src/main/kotlin/ca/weblite/teavmreact/kotlin/
   StyleBuilder, EffectScope, FlowExtensions, TypedContext, JsDispatcher
 ```
 
+## AI Skills
+
+This project publishes AI assistant skills via the `skills-jar-plugin`. To install skills for all dependencies into `.claude/skills/`:
+
+```bash
+mvn ca.weblite:skills-jar-plugin:install
+```
+
+To list available skills without installing:
+
+```bash
+mvn ca.weblite:skills-jar-plugin:list
+```
+
+Skills are packaged as `-skills.jar` classifier artifacts and deployed alongside the library JARs.
+
 ## Code Conventions
 
 - Java 11 language level
