@@ -112,6 +112,20 @@ Edit any source file in your preferred editor and save — the browser reloads a
 
 See the [Developer Guide](docs/developer-guide.adoc) for details on the dev server architecture and optimization options.
 
+## AI Skills
+
+teavm-react ships AI assistant skills as a `-skills.jar` artifact alongside the library JARs. If you use an AI coding tool (Claude Code, Cursor, etc.), you can install version-pinned skill guidance for teavm-react and all your project's dependencies:
+
+```bash
+mvn ca.weblite:skills-jar-plugin:install
+```
+
+This downloads any available `*-skills.jar` artifacts from your dependency tree and unpacks them into `.claude/skills/`. To see what's available without installing:
+
+```bash
+mvn ca.weblite:skills-jar-plugin:list
+```
+
 ## Testing
 
 ```bash
