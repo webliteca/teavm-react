@@ -40,6 +40,47 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  deploy-github-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine Release Version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Set Maven project version
+        run: |
+          mvn versions:set \
+            -DnewVersion="${{ env.VERSION }}" \
+            -DprocessAllModules=true \
+            -DgenerateBackupPoms=false \
+            --batch-mode \
+            -ntp
+
+      - name: Deploy to GitHub Packages
+        run: mvn -B clean deploy --batch-mode -ntp -DskipTests -pl '!teavm-react-demo'
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   deploy-central:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
