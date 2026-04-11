@@ -62,7 +62,9 @@ teavm-react-kotlin/src/main/kotlin/ca/weblite/teavmreact/kotlin/
 
 ## AI Skills
 
-This project publishes AI assistant skills via the `skills-jar-plugin`. To install skills for all dependencies into `.claude/skills/`:
+This project publishes AI assistant skills via the `skills-jar-plugin` (now available on Maven Central). The skill JAR is built automatically during `mvn package` — no extra profile or GitHub Packages authentication is needed.
+
+To install skills for all dependencies into `.claude/skills/`:
 
 ```bash
 mvn ca.weblite:skills-jar-plugin:install
