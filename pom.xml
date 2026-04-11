@@ -34,13 +34,6 @@
         <junit.version>5.10.3</junit.version>
     </properties>
 
-    <pluginRepositories>
-        <pluginRepository>
-            <id>github</id>
-            <url>https://maven.pkg.github.com/webliteca/skills-jar-maven-plugin</url>
-        </pluginRepository>
-    </pluginRepositories>
-
     <build>
         <plugins>
             <plugin>
