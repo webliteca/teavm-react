@@ -33,6 +33,7 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Deploy to GitHub Packages
-        run: mvn deploy -B -DskipTests -pl '!teavm-react-demo'
+        run: mvn -B clean package org.apache.maven.plugins:maven-deploy-plugin:3.1.2:deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/webliteca/teavm-react -pl '!teavm-react-demo'
         env:
+          GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
