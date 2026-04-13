@@ -2,7 +2,6 @@ package ca.weblite.teavmreact.demo;
 
 import ca.weblite.teavmreact.component.ReactView;
 import ca.weblite.teavmreact.core.JsUtil;
-import ca.weblite.teavmreact.core.React;
 import ca.weblite.teavmreact.core.ReactContext;
 import ca.weblite.teavmreact.core.ReactDOM;
 import ca.weblite.teavmreact.core.ReactElement;
@@ -314,7 +313,7 @@ public class App {
     // =========================================================================
     // 2. Page Navigation — Builder DSL (mirrors create-teavm-app template)
     // =========================================================================
-    static final JSObject pageNavigationBuilder = React.wrapComponent(props -> {
+    static ReactElement renderPageNavigationBuilder(JSObject props) {
         StateHandle<String> currentPage = Hooks.useState("home");
 
         return Div.create().className("page-nav-demo")
@@ -336,7 +335,7 @@ public class App {
                         .child(renderNavPage(currentPage.getString()))
                         .build())
                 .build();
-    }, "PageNavigationBuilder");
+    }
 
     static ReactElement renderNavPage(String page) {
         return switch (page) {
@@ -358,7 +357,7 @@ public class App {
     // =========================================================================
     // 2A. Counter — Builder DSL
     // =========================================================================
-    static final JSObject counterBuilder = React.wrapComponent(props -> {
+    static ReactElement renderCounterBuilder(JSObject props) {
         var count = Hooks.useState(0);
 
         return Div.create()
@@ -371,12 +370,12 @@ public class App {
             .child(Button.create().text("Reset")
                 .onClick(e -> count.setInt(0)))
             .build();
-    }, "CounterBuilder");
+    }
 
     // =========================================================================
     // 2B. Item List — Builder DSL with forEach
     // =========================================================================
-    static final JSObject itemListBuilder = React.wrapComponent(props -> {
+    static ReactElement renderItemListBuilder(JSObject props) {
         String[] fruits = {"Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape"};
         var filter = Hooks.useState("");
 
@@ -399,12 +398,12 @@ public class App {
             .child(P.create().text("Showing " + shown + " of " + fruits.length))
             .child(list)
             .build();
-    }, "ItemListBuilder");
+    }
 
     // =========================================================================
     // 2C. Form — Builder DSL with multiple inputs
     // =========================================================================
-    static final JSObject formBuilder = React.wrapComponent(props -> {
+    static ReactElement renderFormBuilder(JSObject props) {
         var name = Hooks.useState("");
         var email = Hooks.useState("");
         var message = Hooks.useState("");
@@ -451,7 +450,7 @@ public class App {
                 .onClick(e -> submitted.setBool(true))
                 .disabled(name.getString().isEmpty() || email.getString().isEmpty()))
             .build();
-    }, "FormBuilder");
+    }
 
     // =========================================================================
     // 3A. Counter — Class-based
@@ -548,7 +547,7 @@ public class App {
     // =========================================================================
     // 4A. useRef Demo
     // =========================================================================
-    static final JSObject useRefDemo = React.wrapComponent(props -> {
+    static ReactElement renderUseRefDemo(JSObject props) {
         var renderCount = Hooks.useRefInt(0);
         var inputValue = Hooks.useState("");
 
@@ -565,12 +564,12 @@ public class App {
                 .placeholder("Type to re-render...")
                 .build()
         );
-    }, "UseRefDemo");
+    }
 
     // =========================================================================
     // 4B. useContext Demo — consumes theme from root
     // =========================================================================
-    static final JSObject useContextDemo = React.wrapComponent(props -> {
+    static ReactElement renderUseContextDemo(JSObject props) {
         String theme = THEME_CTX.useString();
         boolean isDark = theme.equals("dark");
 
@@ -591,12 +590,12 @@ public class App {
                     : "Light mode is active. Click the toggle above to switch."))
                 .build()
         );
-    }, "UseContextDemo");
+    }
 
     // =========================================================================
     // 4C. useMemo Demo — expensive computation
     // =========================================================================
-    static final JSObject useMemoDemo = React.wrapComponent(props -> {
+    static ReactElement renderUseMemoDemo(JSObject props) {
         var number = Hooks.useState(10);
         var dummy = Hooks.useState(0);
 
@@ -616,7 +615,7 @@ public class App {
             p("Unrelated counter (re-renders without recomputing fib): " + dummy.getInt()),
             button("Increment unrelated").onClick(e -> dummy.updateInt(d -> d + 1)).build()
         );
-    }, "UseMemoDemo");
+    }
 
     static int fibonacci(int n) {
         if (n <= 1) return n;
@@ -632,7 +631,7 @@ public class App {
     // =========================================================================
     // 5. HTML Elements Showcase
     // =========================================================================
-    static final JSObject htmlElementsDemo = React.wrapComponent(props -> {
+    static ReactElement renderHtmlElementsDemo(JSObject props) {
         return div(
             h3("HTML Elements Gallery"),
 
@@ -763,5 +762,5 @@ public class App {
                 )
             )
         );
-    }, "HtmlElementsDemo");
+    }
 }
