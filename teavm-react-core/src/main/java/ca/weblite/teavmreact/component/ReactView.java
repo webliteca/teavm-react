@@ -19,7 +19,7 @@ import org.teavm.jso.JSObject;
  *       protected ReactElement render() {
  *           return Html.div(
  *               Html.h2("Count: " + count.getInt()),
- *               Html.button("Increment").onClick(e -> count.update(c -> c + 1)).build()
+ *               Html.button("Increment").onClick(e -&gt; count.updateInt(c -&gt; c + 1)).build()
  *           );
  *       }
  *   }
@@ -47,29 +47,6 @@ public abstract class ReactView {
     protected void onUnmount() {}
 
     /**
-     * Create a React component JSObject from a factory.
-     * Usage: {@code ReactView.toComponent(MyView::new, "MyView")}
-     */
-    public static JSObject toComponent(ViewFactory factory, String displayName) {
-        RenderFunction renderFn = (props) -> {
-            ReactView view = factory.create();
-            Hooks.useEffect(() -> {
-                view.onMount();
-                return view::onUnmount;
-            }, Hooks.deps());
-            return view.render();
-        };
-        return React.wrapComponent(renderFn, displayName);
-    }
-
-    /**
-     * Create a React component from a factory with default name.
-     */
-    public static JSObject toComponent(ViewFactory factory) {
-        return toComponent(factory, "ReactView");
-    }
-
-    /**
      * Create and render a component element.
      */
     public static ReactElement view(ViewFactory factory, String displayName) {
@@ -80,14 +57,21 @@ public abstract class ReactView {
      * Create and render a component element with default name.
      */
     public static ReactElement view(ViewFactory factory) {
-        return React.createElement(toComponent(factory), null);
+        return React.createElement(toComponent(factory, "ReactView"), null);
     }
 
-    /**
-     * Create and render a component element with props.
-     */
-    public static ReactElement view(ViewFactory factory, String displayName, JSObject props) {
-        return React.createElement(toComponent(factory, displayName), props);
+    // ---- Package-private: component wrapping ----
+
+    static JSObject toComponent(ViewFactory factory, String displayName) {
+        RenderFunction renderFn = (props) -> {
+            ReactView view = factory.create();
+            Hooks.useEffect(() -> {
+                view.onMount();
+                return view::onUnmount;
+            }, Hooks.deps());
+            return view.render();
+        };
+        return React.wrapComponent(renderFn, displayName);
     }
 
     @FunctionalInterface

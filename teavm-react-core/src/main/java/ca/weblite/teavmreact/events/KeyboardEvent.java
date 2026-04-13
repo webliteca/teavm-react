@@ -1,9 +1,8 @@
 package ca.weblite.teavmreact.events;
 
-import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
 
-public interface KeyboardEvent extends JSObject {
+public interface KeyboardEvent extends SyntheticEvent {
     @JSProperty
     String getKey();
 
@@ -24,7 +23,4 @@ public interface KeyboardEvent extends JSObject {
 
     @JSProperty
     boolean getRepeat();
-
-    @JSProperty
-    JSObject getTarget();
 }

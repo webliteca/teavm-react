@@ -132,8 +132,8 @@ public class DomBuilder {
         return this;
     }
 
-    public DomBuilder style(JSObject style) {
-        React.setProperty(ensureProps(), "style", style);
+    public DomBuilder style(Style style) {
+        React.setProperty(ensureProps(), "style", style.toJSObject());
         return this;
     }
 
@@ -223,7 +223,17 @@ public class DomBuilder {
         return this;
     }
 
-    public DomBuilder prop(String name, JSObject value) {
+    public DomBuilder prop(String name, int value) {
+        React.setProperty(ensureProps(), name, value);
+        return this;
+    }
+
+    public DomBuilder prop(String name, boolean value) {
+        React.setProperty(ensureProps(), name, value);
+        return this;
+    }
+
+    public DomBuilder prop(String name, double value) {
         React.setProperty(ensureProps(), name, value);
         return this;
     }

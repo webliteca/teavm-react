@@ -2,6 +2,7 @@ package ca.weblite.teavmreact.html;
 
 import ca.weblite.teavmreact.core.React;
 import ca.weblite.teavmreact.core.ReactElement;
+import ca.weblite.teavmreact.core.RenderFunction;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 
@@ -524,17 +525,26 @@ public final class Html {
     // -----------------------------------------------------------------------
 
     /**
-     * Renders a React component with no props.
+     * Renders a functional component with no props.
      */
-    public static ReactElement component(JSObject component) {
-        return React.createElement(component, null);
+    public static ReactElement component(RenderFunction fn) {
+        return React.createElement(React.wrapComponent(fn), null);
     }
 
     /**
-     * Renders a React component with the given props.
+     * Renders a named functional component with no props.
      */
-    public static ReactElement component(JSObject component, JSObject props) {
-        return React.createElement(component, props);
+    public static ReactElement component(RenderFunction fn, String displayName) {
+        return React.createElement(React.wrapComponent(fn, displayName), null);
+    }
+
+    /**
+     * Renders a pre-wrapped React component with no props.
+     * Use for components created via {@code React.wrapComponent()},
+     * {@code React.memo()}, or third-party JS components.
+     */
+    public static ReactElement component(JSObject wrappedComponent) {
+        return React.createElement(wrappedComponent, null);
     }
 
     // -----------------------------------------------------------------------

@@ -1,9 +1,8 @@
 package ca.weblite.teavmreact.events;
 
-import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
 
-public interface MouseEvent extends JSObject {
+public interface MouseEvent extends SyntheticEvent {
     @JSProperty
     double getClientX();
 
@@ -30,7 +29,4 @@ public interface MouseEvent extends JSObject {
 
     @JSProperty
     boolean getShiftKey();
-
-    @JSProperty
-    JSObject getTarget();
 }

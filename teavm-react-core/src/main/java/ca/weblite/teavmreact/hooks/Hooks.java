@@ -47,13 +47,6 @@ public final class Hooks {
         return new StateHandle<>(useStateDouble(initial));
     }
 
-    /**
-     * React.useState for arbitrary JS objects.
-     */
-    public static StateHandle<JSObject> useState(JSObject initial) {
-        return new StateHandle<>(useStateObj(initial));
-    }
-
     // ====================================================================
     // useEffect
     // ====================================================================
@@ -63,6 +56,13 @@ public final class Hooks {
      */
     public static void useEffect(EffectCallback effect) {
         useEffectNoDeps(effect);
+    }
+
+    /**
+     * useEffect that runs only once on mount (equivalent to useEffect with []).
+     */
+    public static void useEffectOnMount(EffectCallback effect) {
+        useEffectWithDeps(effect, emptyDeps());
     }
 
     /**

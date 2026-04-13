@@ -7,7 +7,6 @@ import ca.weblite.teavmreact.events.EventHandler;
 import ca.weblite.teavmreact.events.FocusEventHandler;
 import ca.weblite.teavmreact.events.KeyboardEventHandler;
 import ca.weblite.teavmreact.events.SubmitEventHandler;
-import org.teavm.jso.JSObject;
 
 /**
  * Builder for interactive HTML elements that need props such as event handlers,
@@ -214,8 +213,8 @@ public final class ElementBuilder {
     // Style
     // -----------------------------------------------------------------------
 
-    public ElementBuilder style(JSObject style) {
-        React.setProperty(props, "style", style);
+    public ElementBuilder style(Style style) {
+        React.setProperty(props, "style", style.toJSObject());
         return this;
     }
 
@@ -238,7 +237,7 @@ public final class ElementBuilder {
         return this;
     }
 
-    public ElementBuilder prop(String name, JSObject value) {
+    public ElementBuilder prop(String name, double value) {
         React.setProperty(props, name, value);
         return this;
     }

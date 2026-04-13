@@ -5,5 +5,5 @@ import org.teavm.jso.JSObject;
 
 @JSFunctor
 public interface SubmitEventHandler extends JSObject {
-    void handleEvent(JSObject event);
+    void handleEvent(SubmitEvent event);
 }

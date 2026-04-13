@@ -8,10 +8,11 @@ import org.teavm.jso.JSObject;
  * Java-friendly wrapper for React's useState return value [value, setter].
  *
  * <p>React hooks return JS primitives, not Java objects. Use the typed
- * getters (getString, getInt, getBool, getDouble) to extract values
- * correctly via JS coercion rather than Java casts.</p>
+ * getters ({@link #getString()}, {@link #getInt()}, {@link #getBool()},
+ * {@link #getDouble()}) to extract values correctly via JS coercion
+ * rather than Java casts.</p>
  *
- * @param <T> the logical Java type of the state value
+ * @param <T> the logical Java type of the state value (for documentation only)
  */
 public class StateHandle<T> {
 
@@ -27,14 +28,6 @@ public class StateHandle<T> {
     }
 
     // ---- Getters ----
-
-    /**
-     * Returns the raw JS value, unwrapped to a Java object via TeaVM's default conversion.
-     */
-    @SuppressWarnings("unchecked")
-    public T get() {
-        return (T) unwrap(hookResult[0]);
-    }
 
     /**
      * Returns the current state as a String.
@@ -67,13 +60,6 @@ public class StateHandle<T> {
     // ---- Setters ----
 
     /**
-     * Sets the state to the given value.
-     */
-    public void set(T value) {
-        callSetter(hookResult[1], (JSObject) value);
-    }
-
-    /**
      * Sets the state to an int value.
      */
     public void setInt(int value) {
@@ -104,14 +90,14 @@ public class StateHandle<T> {
     // ---- Functional updates ----
 
     /**
-     * Performs a functional update for int state: setter(prev => updater(prev)).
+     * Performs a functional update for int state: setter(prev =&gt; updater(prev)).
      */
     public void updateInt(IntUpdater updater) {
         callSetterWithIntUpdater(hookResult[1], updater);
     }
 
     /**
-     * Performs a functional update for String state: setter(prev => updater(prev)).
+     * Performs a functional update for String state: setter(prev =&gt; updater(prev)).
      */
     public void updateString(StringUpdater updater) {
         callSetterWithStringUpdater(hookResult[1], updater);
@@ -137,9 +123,6 @@ public class StateHandle<T> {
 
     // ---- Private JS bridge methods ----
 
-    @JSBody(params = {"value"}, script = "return value;")
-    private static native Object unwrap(JSObject value);
-
     @JSBody(params = {"value"}, script = "return '' + value;")
     private static native String unwrapString(JSObject value);
 
@@ -151,9 +134,6 @@ public class StateHandle<T> {
 
     @JSBody(params = {"value"}, script = "return +value;")
     private static native double unwrapDouble(JSObject value);
-
-    @JSBody(params = {"setter", "value"}, script = "setter(value);")
-    private static native void callSetter(JSObject setter, JSObject value);
 
     @JSBody(params = {"setter", "value"}, script = "setter(value);")
     private static native void callSetterInt(JSObject setter, int value);

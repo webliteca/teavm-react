@@ -5,6 +5,7 @@ import org.teavm.jso.JSObject;
 
 /**
  * Java-friendly wrapper around a React ref object ({current: value}).
+ * Use typed getters and setters to avoid working with raw JSObject.
  */
 public class RefHandle {
 
@@ -14,26 +15,7 @@ public class RefHandle {
         this.ref = ref;
     }
 
-    /**
-     * Returns the underlying JS ref object (for passing to React elements).
-     */
-    public JSObject raw() {
-        return ref;
-    }
-
-    /**
-     * Get the current value of the ref.
-     */
-    public JSObject getCurrent() {
-        return getCurrent(ref);
-    }
-
-    /**
-     * Set the current value of the ref.
-     */
-    public void setCurrent(JSObject value) {
-        setCurrent(ref, value);
-    }
+    // ---- Typed getters ----
 
     /**
      * Get the current value as a String.
@@ -49,15 +31,79 @@ public class RefHandle {
         return getCurrentInt(ref);
     }
 
-    @JSBody(params = {"ref"}, script = "return ref.current;")
-    private static native JSObject getCurrent(JSObject ref);
+    /**
+     * Get the current value as a boolean.
+     */
+    public boolean getCurrentBool() {
+        return getCurrentBool(ref);
+    }
 
-    @JSBody(params = {"ref", "value"}, script = "ref.current = value;")
-    private static native void setCurrent(JSObject ref, JSObject value);
+    /**
+     * Get the current value as a double.
+     */
+    public double getCurrentDouble() {
+        return getCurrentDouble(ref);
+    }
+
+    // ---- Typed setters ----
+
+    /**
+     * Set the current value to a String.
+     */
+    public void setCurrentString(String value) {
+        setCurrentString(ref, value);
+    }
+
+    /**
+     * Set the current value to an int.
+     */
+    public void setCurrentInt(int value) {
+        setCurrentInt(ref, value);
+    }
+
+    /**
+     * Set the current value to a boolean.
+     */
+    public void setCurrentBool(boolean value) {
+        setCurrentBool(ref, value);
+    }
+
+    /**
+     * Set the current value to a double.
+     */
+    public void setCurrentDouble(double value) {
+        setCurrentDouble(ref, value);
+    }
+
+    // ---- Package-private: raw ref for passing to React elements ----
+
+    JSObject rawRef() {
+        return ref;
+    }
+
+    // ---- Private JS bridge methods ----
 
     @JSBody(params = {"ref"}, script = "return '' + ref.current;")
     private static native String getCurrentString(JSObject ref);
 
     @JSBody(params = {"ref"}, script = "return ref.current|0;")
     private static native int getCurrentInt(JSObject ref);
+
+    @JSBody(params = {"ref"}, script = "return !!ref.current;")
+    private static native boolean getCurrentBool(JSObject ref);
+
+    @JSBody(params = {"ref"}, script = "return +ref.current;")
+    private static native double getCurrentDouble(JSObject ref);
+
+    @JSBody(params = {"ref", "value"}, script = "ref.current = value;")
+    private static native void setCurrentString(JSObject ref, String value);
+
+    @JSBody(params = {"ref", "value"}, script = "ref.current = value;")
+    private static native void setCurrentInt(JSObject ref, int value);
+
+    @JSBody(params = {"ref", "value"}, script = "ref.current = value;")
+    private static native void setCurrentBool(JSObject ref, boolean value);
+
+    @JSBody(params = {"ref", "value"}, script = "ref.current = value;")
+    private static native void setCurrentDouble(JSObject ref, double value);
 }
