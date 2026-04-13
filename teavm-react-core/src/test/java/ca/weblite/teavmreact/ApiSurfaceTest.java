@@ -225,6 +225,37 @@ public class ApiSurfaceTest {
         assertNotNull(DomBuilder.class);
     }
 
+    @Test
+    void domBuilderHasChildAndBuildMethods() {
+        Set<String> methods = getPublicMethodNames(DomBuilder.class);
+        assertTrue(methods.contains("child"), "DomBuilder should have child()");
+        assertTrue(methods.contains("build"), "DomBuilder should have build()");
+        assertTrue(methods.contains("text"), "DomBuilder should have text()");
+        assertTrue(methods.contains("className"), "DomBuilder should have className()");
+        assertTrue(methods.contains("forEach"), "DomBuilder should have forEach()");
+    }
+
+    @Test
+    void domBuilderInnerClassesExist() {
+        assertNotNull(DomBuilder.Div.class);
+        assertNotNull(DomBuilder.Span.class);
+        assertNotNull(DomBuilder.Nav.class);
+        assertNotNull(DomBuilder.H1.class);
+        assertNotNull(DomBuilder.P.class);
+        assertNotNull(DomBuilder.Ul.class);
+        assertNotNull(DomBuilder.Li.class);
+        assertNotNull(DomBuilder.Button.class);
+    }
+
+    @Test
+    void reactHasJsArrayUtilities() {
+        Set<String> methods = getPublicStaticMethodNames(React.class);
+        assertTrue(methods.contains("createArray"), "React should have createArray()");
+        assertTrue(methods.contains("arrayPush"), "React should have arrayPush()");
+        assertTrue(methods.contains("createElementFromArray"),
+                "React should have createElementFromArray()");
+    }
+
     // ====================================================================
     // Component model
     // ====================================================================

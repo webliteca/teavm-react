@@ -145,6 +145,25 @@ public final class React {
     public static native void setOnMouseLeave(JSObject obj, EventHandler handler);
 
     // -----------------------------------------------------------------------
+    // JS array utilities (for building children arrays natively in JS,
+    // avoiding TeaVM JSObject[] marshaling issues with ArrayList-sourced elements)
+    // -----------------------------------------------------------------------
+
+    @JSBody(script = "return [];")
+    public static native JSObject createArray();
+
+    @JSBody(params = {"arr", "element"}, script = "arr.push(element);")
+    public static native void arrayPush(JSObject arr, JSObject element);
+
+    /**
+     * createElement variant that accepts a native JS array of children (as JSObject).
+     * This avoids passing a Java JSObject[] through the @JSBody boundary.
+     */
+    @JSBody(params = {"type", "props", "childrenArray"}, script =
+            "return React.createElement.apply(null, [type, props].concat(childrenArray));")
+    public static native ReactElement createElementFromArray(String type, JSObject props, JSObject childrenArray);
+
+    // -----------------------------------------------------------------------
     // Context API
     // -----------------------------------------------------------------------
 

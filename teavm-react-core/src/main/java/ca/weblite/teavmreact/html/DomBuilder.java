@@ -239,11 +239,14 @@ public class DomBuilder {
      */
     public ReactElement build() {
         if (children != null && !children.isEmpty()) {
-            JSObject[] jsChildren = new JSObject[children.size()];
+            // Build the children array natively in JS to avoid TeaVM's
+            // JSObject[] marshaling issues when elements come from ArrayList
+            // (whose internal Object[] storage can cause unwrap failures).
+            JSObject jsChildren = React.createArray();
             for (int i = 0; i < children.size(); i++) {
-                jsChildren[i] = children.get(i);
+                React.arrayPush(jsChildren, children.get(i));
             }
-            return React.createElement(tag, props, jsChildren);
+            return React.createElementFromArray(tag, props, jsChildren);
         }
         if (textContent != null) {
             return React.createElementWithText(tag, props, textContent);
