@@ -266,10 +266,10 @@ public final class ElementBuilder {
         if (children == null || children.length == 0) {
             return build();
         }
-        JSObject[] jsChildren = new JSObject[children.length];
+        JSObject jsChildren = React.createArray();
         for (int i = 0; i < children.length; i++) {
-            jsChildren[i] = children[i];
+            React.arrayPush(jsChildren, children[i]);
         }
-        return React.createElement(tag, props, jsChildren);
+        return React.createElementFromArray(tag, props, jsChildren);
     }
 }

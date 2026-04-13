@@ -76,6 +76,7 @@ public class App {
                 section(
                     h2("2. Approach B — Builder DSL"),
                     p("Java-idiomatic fluent builder pattern."),
+                    component(pageNavigationBuilder),
                     component(counterBuilder),
                     component(itemListBuilder),
                     component(formBuilder)
@@ -311,6 +312,50 @@ public class App {
             sb.append(arr[i]);
         }
         return sb.toString();
+    }
+
+    // =========================================================================
+    // 2. Page Navigation — Builder DSL (mirrors create-teavm-app template)
+    // =========================================================================
+    static final JSObject pageNavigationBuilder = React.wrapComponent(props -> {
+        StateHandle<String> currentPage = Hooks.useState("home");
+
+        return Div.create().className("page-nav-demo")
+                .child(Nav.create().className("navbar")
+                        .child(H3.create().text("Page Navigation (Builder DSL)").build())
+                        .child(Div.create().className("nav-links")
+                                .child(Button.create().text("Home")
+                                        .onClick(e -> currentPage.setString("home"))
+                                        .className("nav-btn").build())
+                                .child(Button.create().text("About")
+                                        .onClick(e -> currentPage.setString("about"))
+                                        .className("nav-btn").build())
+                                .child(Button.create().text("Contact")
+                                        .onClick(e -> currentPage.setString("contact"))
+                                        .className("nav-btn").build())
+                                .build())
+                        .build())
+                .child(Div.create().className("content")
+                        .child(renderNavPage(currentPage.getString()))
+                        .build())
+                .build();
+    }, "PageNavigationBuilder");
+
+    static ReactElement renderNavPage(String page) {
+        return switch (page) {
+            case "about" -> Div.create()
+                    .child(H4.create().text("About Page").build())
+                    .child(P.create().text("This is the about page, rendered with DomBuilder.").build())
+                    .build();
+            case "contact" -> Div.create()
+                    .child(H4.create().text("Contact Page").build())
+                    .child(P.create().text("This is the contact page.").build())
+                    .build();
+            default -> Div.create()
+                    .child(H4.create().text("Home Page").build())
+                    .child(P.create().text("Welcome! Click the buttons above to navigate.").build())
+                    .build();
+        };
     }
 
     // =========================================================================

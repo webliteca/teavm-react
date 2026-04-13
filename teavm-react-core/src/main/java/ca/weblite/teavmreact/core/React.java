@@ -163,6 +163,13 @@ public final class React {
             "return React.createElement.apply(null, [type, props].concat(childrenArray));")
     public static native ReactElement createElementFromArray(String type, JSObject props, JSObject childrenArray);
 
+    /**
+     * createElement variant for component types that accepts a native JS array of children.
+     */
+    @JSBody(params = {"type", "props", "childrenArray"}, script =
+            "return React.createElement.apply(null, [type, props].concat(childrenArray));")
+    public static native ReactElement createElementFromArray(JSObject type, JSObject props, JSObject childrenArray);
+
     // -----------------------------------------------------------------------
     // Context API
     // -----------------------------------------------------------------------

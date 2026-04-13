@@ -38,10 +38,10 @@ public final class Html {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private static JSObject[] toJSArray(ReactElement[] elements) {
-        JSObject[] arr = new JSObject[elements.length];
+    private static JSObject toJSArray(ReactElement[] elements) {
+        JSObject arr = React.createArray();
         for (int i = 0; i < elements.length; i++) {
-            arr[i] = elements[i];
+            React.arrayPush(arr, elements[i]);
         }
         return arr;
     }
@@ -62,7 +62,7 @@ public final class Html {
     }
 
     public static ReactElement div(ReactElement... children) {
-        return React.createElement("div", null, toJSArray(children));
+        return React.createElementFromArray("div", null, toJSArray(children));
     }
 
     public static ReactElement span(String text) {
@@ -70,7 +70,7 @@ public final class Html {
     }
 
     public static ReactElement span(ReactElement... children) {
-        return React.createElement("span", null, toJSArray(children));
+        return React.createElementFromArray("span", null, toJSArray(children));
     }
 
     public static ReactElement section(String text) {
@@ -78,7 +78,7 @@ public final class Html {
     }
 
     public static ReactElement section(ReactElement... children) {
-        return React.createElement("section", null, toJSArray(children));
+        return React.createElementFromArray("section", null, toJSArray(children));
     }
 
     public static ReactElement article(String text) {
@@ -86,7 +86,7 @@ public final class Html {
     }
 
     public static ReactElement article(ReactElement... children) {
-        return React.createElement("article", null, toJSArray(children));
+        return React.createElementFromArray("article", null, toJSArray(children));
     }
 
     public static ReactElement aside(String text) {
@@ -94,7 +94,7 @@ public final class Html {
     }
 
     public static ReactElement aside(ReactElement... children) {
-        return React.createElement("aside", null, toJSArray(children));
+        return React.createElementFromArray("aside", null, toJSArray(children));
     }
 
     public static ReactElement header(String text) {
@@ -102,7 +102,7 @@ public final class Html {
     }
 
     public static ReactElement header(ReactElement... children) {
-        return React.createElement("header", null, toJSArray(children));
+        return React.createElementFromArray("header", null, toJSArray(children));
     }
 
     public static ReactElement footer(String text) {
@@ -110,7 +110,7 @@ public final class Html {
     }
 
     public static ReactElement footer(ReactElement... children) {
-        return React.createElement("footer", null, toJSArray(children));
+        return React.createElementFromArray("footer", null, toJSArray(children));
     }
 
     public static ReactElement main(String text) {
@@ -118,7 +118,7 @@ public final class Html {
     }
 
     public static ReactElement main(ReactElement... children) {
-        return React.createElement("main", null, toJSArray(children));
+        return React.createElementFromArray("main", null, toJSArray(children));
     }
 
     public static ReactElement nav(String text) {
@@ -126,7 +126,7 @@ public final class Html {
     }
 
     public static ReactElement nav(ReactElement... children) {
-        return React.createElement("nav", null, toJSArray(children));
+        return React.createElementFromArray("nav", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -138,7 +138,7 @@ public final class Html {
     }
 
     public static ReactElement h1(ReactElement... children) {
-        return React.createElement("h1", null, toJSArray(children));
+        return React.createElementFromArray("h1", null, toJSArray(children));
     }
 
     public static ReactElement h2(String text) {
@@ -146,7 +146,7 @@ public final class Html {
     }
 
     public static ReactElement h2(ReactElement... children) {
-        return React.createElement("h2", null, toJSArray(children));
+        return React.createElementFromArray("h2", null, toJSArray(children));
     }
 
     public static ReactElement h3(String text) {
@@ -154,7 +154,7 @@ public final class Html {
     }
 
     public static ReactElement h3(ReactElement... children) {
-        return React.createElement("h3", null, toJSArray(children));
+        return React.createElementFromArray("h3", null, toJSArray(children));
     }
 
     public static ReactElement h4(String text) {
@@ -162,7 +162,7 @@ public final class Html {
     }
 
     public static ReactElement h4(ReactElement... children) {
-        return React.createElement("h4", null, toJSArray(children));
+        return React.createElementFromArray("h4", null, toJSArray(children));
     }
 
     public static ReactElement h5(String text) {
@@ -170,7 +170,7 @@ public final class Html {
     }
 
     public static ReactElement h5(ReactElement... children) {
-        return React.createElement("h5", null, toJSArray(children));
+        return React.createElementFromArray("h5", null, toJSArray(children));
     }
 
     public static ReactElement h6(String text) {
@@ -178,7 +178,7 @@ public final class Html {
     }
 
     public static ReactElement h6(ReactElement... children) {
-        return React.createElement("h6", null, toJSArray(children));
+        return React.createElementFromArray("h6", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -190,7 +190,7 @@ public final class Html {
     }
 
     public static ReactElement p(ReactElement... children) {
-        return React.createElement("p", null, toJSArray(children));
+        return React.createElementFromArray("p", null, toJSArray(children));
     }
 
     public static ReactElement pre(String text) {
@@ -198,7 +198,7 @@ public final class Html {
     }
 
     public static ReactElement pre(ReactElement... children) {
-        return React.createElement("pre", null, toJSArray(children));
+        return React.createElementFromArray("pre", null, toJSArray(children));
     }
 
     public static ReactElement code(String text) {
@@ -206,7 +206,7 @@ public final class Html {
     }
 
     public static ReactElement code(ReactElement... children) {
-        return React.createElement("code", null, toJSArray(children));
+        return React.createElementFromArray("code", null, toJSArray(children));
     }
 
     public static ReactElement blockquote(String text) {
@@ -214,7 +214,7 @@ public final class Html {
     }
 
     public static ReactElement blockquote(ReactElement... children) {
-        return React.createElement("blockquote", null, toJSArray(children));
+        return React.createElementFromArray("blockquote", null, toJSArray(children));
     }
 
     public static ReactElement em(String text) {
@@ -222,7 +222,7 @@ public final class Html {
     }
 
     public static ReactElement em(ReactElement... children) {
-        return React.createElement("em", null, toJSArray(children));
+        return React.createElementFromArray("em", null, toJSArray(children));
     }
 
     public static ReactElement strong(String text) {
@@ -230,7 +230,7 @@ public final class Html {
     }
 
     public static ReactElement strong(ReactElement... children) {
-        return React.createElement("strong", null, toJSArray(children));
+        return React.createElementFromArray("strong", null, toJSArray(children));
     }
 
     public static ReactElement small(String text) {
@@ -238,7 +238,7 @@ public final class Html {
     }
 
     public static ReactElement small(ReactElement... children) {
-        return React.createElement("small", null, toJSArray(children));
+        return React.createElementFromArray("small", null, toJSArray(children));
     }
 
     public static ReactElement sub(String text) {
@@ -246,7 +246,7 @@ public final class Html {
     }
 
     public static ReactElement sub(ReactElement... children) {
-        return React.createElement("sub", null, toJSArray(children));
+        return React.createElementFromArray("sub", null, toJSArray(children));
     }
 
     public static ReactElement sup(String text) {
@@ -254,7 +254,7 @@ public final class Html {
     }
 
     public static ReactElement sup(ReactElement... children) {
-        return React.createElement("sup", null, toJSArray(children));
+        return React.createElementFromArray("sup", null, toJSArray(children));
     }
 
     public static ReactElement mark(String text) {
@@ -262,7 +262,7 @@ public final class Html {
     }
 
     public static ReactElement mark(ReactElement... children) {
-        return React.createElement("mark", null, toJSArray(children));
+        return React.createElementFromArray("mark", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -274,7 +274,7 @@ public final class Html {
     }
 
     public static ReactElement ul(ReactElement... children) {
-        return React.createElement("ul", null, toJSArray(children));
+        return React.createElementFromArray("ul", null, toJSArray(children));
     }
 
     public static ReactElement ol(String text) {
@@ -282,7 +282,7 @@ public final class Html {
     }
 
     public static ReactElement ol(ReactElement... children) {
-        return React.createElement("ol", null, toJSArray(children));
+        return React.createElementFromArray("ol", null, toJSArray(children));
     }
 
     public static ReactElement li(String text) {
@@ -290,7 +290,7 @@ public final class Html {
     }
 
     public static ReactElement li(ReactElement... children) {
-        return React.createElement("li", null, toJSArray(children));
+        return React.createElementFromArray("li", null, toJSArray(children));
     }
 
     public static ReactElement dl(String text) {
@@ -298,7 +298,7 @@ public final class Html {
     }
 
     public static ReactElement dl(ReactElement... children) {
-        return React.createElement("dl", null, toJSArray(children));
+        return React.createElementFromArray("dl", null, toJSArray(children));
     }
 
     public static ReactElement dt(String text) {
@@ -306,7 +306,7 @@ public final class Html {
     }
 
     public static ReactElement dt(ReactElement... children) {
-        return React.createElement("dt", null, toJSArray(children));
+        return React.createElementFromArray("dt", null, toJSArray(children));
     }
 
     public static ReactElement dd(String text) {
@@ -314,7 +314,7 @@ public final class Html {
     }
 
     public static ReactElement dd(ReactElement... children) {
-        return React.createElement("dd", null, toJSArray(children));
+        return React.createElementFromArray("dd", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -326,7 +326,7 @@ public final class Html {
     }
 
     public static ReactElement table(ReactElement... children) {
-        return React.createElement("table", null, toJSArray(children));
+        return React.createElementFromArray("table", null, toJSArray(children));
     }
 
     public static ReactElement thead(String text) {
@@ -334,7 +334,7 @@ public final class Html {
     }
 
     public static ReactElement thead(ReactElement... children) {
-        return React.createElement("thead", null, toJSArray(children));
+        return React.createElementFromArray("thead", null, toJSArray(children));
     }
 
     public static ReactElement tbody(String text) {
@@ -342,7 +342,7 @@ public final class Html {
     }
 
     public static ReactElement tbody(ReactElement... children) {
-        return React.createElement("tbody", null, toJSArray(children));
+        return React.createElementFromArray("tbody", null, toJSArray(children));
     }
 
     public static ReactElement tfoot(String text) {
@@ -350,7 +350,7 @@ public final class Html {
     }
 
     public static ReactElement tfoot(ReactElement... children) {
-        return React.createElement("tfoot", null, toJSArray(children));
+        return React.createElementFromArray("tfoot", null, toJSArray(children));
     }
 
     public static ReactElement tr(String text) {
@@ -358,7 +358,7 @@ public final class Html {
     }
 
     public static ReactElement tr(ReactElement... children) {
-        return React.createElement("tr", null, toJSArray(children));
+        return React.createElementFromArray("tr", null, toJSArray(children));
     }
 
     public static ReactElement th(String text) {
@@ -366,7 +366,7 @@ public final class Html {
     }
 
     public static ReactElement th(ReactElement... children) {
-        return React.createElement("th", null, toJSArray(children));
+        return React.createElementFromArray("th", null, toJSArray(children));
     }
 
     public static ReactElement td(String text) {
@@ -374,7 +374,7 @@ public final class Html {
     }
 
     public static ReactElement td(ReactElement... children) {
-        return React.createElement("td", null, toJSArray(children));
+        return React.createElementFromArray("td", null, toJSArray(children));
     }
 
     public static ReactElement caption(String text) {
@@ -382,7 +382,7 @@ public final class Html {
     }
 
     public static ReactElement caption(ReactElement... children) {
-        return React.createElement("caption", null, toJSArray(children));
+        return React.createElementFromArray("caption", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -394,7 +394,7 @@ public final class Html {
     }
 
     public static ReactElement form(ReactElement... children) {
-        return React.createElement("form", null, toJSArray(children));
+        return React.createElementFromArray("form", null, toJSArray(children));
     }
 
     public static ReactElement fieldset(String text) {
@@ -402,7 +402,7 @@ public final class Html {
     }
 
     public static ReactElement fieldset(ReactElement... children) {
-        return React.createElement("fieldset", null, toJSArray(children));
+        return React.createElementFromArray("fieldset", null, toJSArray(children));
     }
 
     public static ReactElement legend(String text) {
@@ -410,7 +410,7 @@ public final class Html {
     }
 
     public static ReactElement legend(ReactElement... children) {
-        return React.createElement("legend", null, toJSArray(children));
+        return React.createElementFromArray("legend", null, toJSArray(children));
     }
 
     public static ReactElement label(String text) {
@@ -418,7 +418,7 @@ public final class Html {
     }
 
     public static ReactElement label(ReactElement... children) {
-        return React.createElement("label", null, toJSArray(children));
+        return React.createElementFromArray("label", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -430,7 +430,7 @@ public final class Html {
     }
 
     public static ReactElement figure(ReactElement... children) {
-        return React.createElement("figure", null, toJSArray(children));
+        return React.createElementFromArray("figure", null, toJSArray(children));
     }
 
     public static ReactElement figcaption(String text) {
@@ -438,7 +438,7 @@ public final class Html {
     }
 
     public static ReactElement figcaption(ReactElement... children) {
-        return React.createElement("figcaption", null, toJSArray(children));
+        return React.createElementFromArray("figcaption", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -462,7 +462,7 @@ public final class Html {
     }
 
     public static ReactElement details(ReactElement... children) {
-        return React.createElement("details", null, toJSArray(children));
+        return React.createElementFromArray("details", null, toJSArray(children));
     }
 
     public static ReactElement summary(String text) {
@@ -470,7 +470,7 @@ public final class Html {
     }
 
     public static ReactElement summary(ReactElement... children) {
-        return React.createElement("summary", null, toJSArray(children));
+        return React.createElementFromArray("summary", null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------
@@ -545,7 +545,7 @@ public final class Html {
      * Wraps children in a React.Fragment (no extra DOM node).
      */
     public static ReactElement fragment(ReactElement... children) {
-        return React.createElement(React.fragment(), null, toJSArray(children));
+        return React.createElementFromArray(React.fragment(), null, toJSArray(children));
     }
 
     // -----------------------------------------------------------------------

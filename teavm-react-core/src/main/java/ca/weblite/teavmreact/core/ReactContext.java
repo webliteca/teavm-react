@@ -48,11 +48,11 @@ public class ReactContext {
     public ReactElement provide(JSObject value, ReactElement... children) {
         JSObject props = React.createObject();
         React.setProperty(props, "value", value);
-        JSObject[] all = new JSObject[children.length];
+        JSObject all = React.createArray();
         for (int i = 0; i < children.length; i++) {
-            all[i] = children[i];
+            React.arrayPush(all, children[i]);
         }
-        return React.createElement(provider(), props, all);
+        return React.createElementFromArray(provider(), props, all);
     }
 
     @JSBody(params = {"ctx"}, script = "return ctx.Provider;")
