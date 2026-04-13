@@ -2,18 +2,15 @@ package ca.weblite.teavmreact.demo;
 
 import ca.weblite.teavmreact.component.ReactView;
 import ca.weblite.teavmreact.core.JsUtil;
-import ca.weblite.teavmreact.core.React;
 import ca.weblite.teavmreact.core.ReactContext;
 import ca.weblite.teavmreact.core.ReactDOM;
 import ca.weblite.teavmreact.core.ReactElement;
-import ca.weblite.teavmreact.core.VoidCallback;
 import ca.weblite.teavmreact.hooks.Hooks;
-import ca.weblite.teavmreact.hooks.RefHandle;
 import ca.weblite.teavmreact.hooks.StateHandle;
 import ca.weblite.teavmreact.html.DomBuilder;
 import ca.weblite.teavmreact.html.DomBuilder.*;
 import ca.weblite.teavmreact.html.Html;
-import org.teavm.jso.JSBody;
+import ca.weblite.teavmreact.html.Style;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.dom.html.HTMLDocument;
 
@@ -27,12 +24,11 @@ public class App {
     // =========================================================================
     // Theme context (shared across components)
     // =========================================================================
-    static final ReactContext THEME_CTX = ReactContext.create(React.stringToJS("light"));
+    static final ReactContext THEME_CTX = ReactContext.create("light");
 
     public static void main(String[] args) {
         var root = ReactDOM.createRoot(HTMLDocument.current().getElementById("root"));
-        JSObject app = React.wrapComponent(App::renderApp, "App");
-        root.render(React.createElement(app, null));
+        root.render(component(App::renderApp, "App"));
     }
 
     // =========================================================================
@@ -42,7 +38,7 @@ public class App {
         var theme = Hooks.useState("light");
         boolean isDark = theme.getString().equals("dark");
 
-        return THEME_CTX.provide(React.stringToJS(theme.getString()),
+        return THEME_CTX.provide(theme.getString(),
             div(
                 // Header
                 header(
@@ -64,10 +60,10 @@ public class App {
                 section(
                     h2("1. Approach A — Functional Components"),
                     p("React-familiar hooks-based pattern."),
-                    component(counterFunctional),
-                    component(timerFunctional),
-                    component(textInputFunctional),
-                    component(todoListFunctional)
+                    component(App::renderCounterFunctional, "CounterFunctional"),
+                    component(App::renderTimerFunctional, "TimerFunctional"),
+                    component(App::renderTextInputFunctional, "TextInputFunctional"),
+                    component(App::renderTodoListFunctional, "TodoListFunctional")
                 ),
 
                 hr(),
@@ -76,9 +72,10 @@ public class App {
                 section(
                     h2("2. Approach B — Builder DSL"),
                     p("Java-idiomatic fluent builder pattern."),
-                    component(counterBuilder),
-                    component(itemListBuilder),
-                    component(formBuilder)
+                    component(App::renderPageNavigationBuilder, "PageNavigationBuilder"),
+                    component(App::renderCounterBuilder, "CounterBuilder"),
+                    component(App::renderItemListBuilder, "ItemListBuilder"),
+                    component(App::renderFormBuilder, "FormBuilder")
                 ),
 
                 hr(),
@@ -97,9 +94,9 @@ public class App {
                 // ===== Section 4: Hooks showcase =====
                 section(
                     h2("4. Hooks Showcase"),
-                    component(useRefDemo),
-                    component(useContextDemo),
-                    component(useMemoDemo)
+                    component(App::renderUseRefDemo, "UseRefDemo"),
+                    component(App::renderUseContextDemo, "UseContextDemo"),
+                    component(App::renderUseMemoDemo, "UseMemoDemo")
                 ),
 
                 hr(),
@@ -107,7 +104,7 @@ public class App {
                 // ===== Section 5: HTML elements showcase =====
                 section(
                     h2("5. HTML Elements Showcase"),
-                    component(htmlElementsDemo)
+                    component(App::renderHtmlElementsDemo, "HtmlElementsDemo")
                 ),
 
                 // Footer
@@ -122,7 +119,7 @@ public class App {
     // =========================================================================
     // 1A. Counter — Functional
     // =========================================================================
-    static final JSObject counterFunctional = React.wrapComponent(props -> {
+    static ReactElement renderCounterFunctional(JSObject props) {
         var count = Hooks.useState(0);
         var step = Hooks.useState(1);
 
@@ -147,12 +144,12 @@ public class App {
                 button("10").onClick(e -> step.setInt(10)).build()
             )
         );
-    }, "CounterFunctional");
+    }
 
     // =========================================================================
     // 1B. Timer — Functional with useEffect
     // =========================================================================
-    static final JSObject timerFunctional = React.wrapComponent(props -> {
+    static ReactElement renderTimerFunctional(JSObject props) {
         var seconds = Hooks.useState(0);
         var running = Hooks.useState(true);
 
@@ -177,12 +174,12 @@ public class App {
                 .onClick(e -> { seconds.setInt(0); running.setBool(true); })
                 .build()
         );
-    }, "TimerFunctional");
+    }
 
     // =========================================================================
     // 1C. Text Input — Functional with controlled input
     // =========================================================================
-    static final JSObject textInputFunctional = React.wrapComponent(props -> {
+    static ReactElement renderTextInputFunctional(JSObject props) {
         var value = Hooks.useState("");
         var focused = Hooks.useState(false);
 
@@ -203,12 +200,12 @@ public class App {
                 ? p("Reversed: " + new StringBuilder(value.getString()).reverse().toString())
                 : p("Start typing to see your text reversed.")
         );
-    }, "TextInputFunctional");
+    }
 
     // =========================================================================
     // 1D. Todo List — Functional with dynamic list
     // =========================================================================
-    static final JSObject todoListFunctional = React.wrapComponent(props -> {
+    static ReactElement renderTodoListFunctional(JSObject props) {
         var input = Hooks.useState("");
         var nextId = Hooks.useState(3);
         // Store todos as parallel arrays (TeaVM can't pass Java collections to JS)
@@ -281,7 +278,7 @@ public class App {
             ),
             ul(items)
         );
-    }, "TodoListFunctional");
+    }
 
     static void addTodo(StateHandle<String> ids, StateHandle<String> texts,
                         StateHandle<String> dones, StateHandle<Integer> nextId,
@@ -314,9 +311,55 @@ public class App {
     }
 
     // =========================================================================
+    // 2. Page Navigation — Builder DSL (mirrors create-teavm-app template)
+    // =========================================================================
+    static ReactElement renderPageNavigationBuilder(JSObject props) {
+        StateHandle<String> currentPage = Hooks.useState("home");
+
+        return Div.create().className("page-nav-demo")
+                .child(Nav.create().className("navbar")
+                        .child(H3.create().text("Page Navigation (Builder DSL)").build())
+                        .child(Div.create().className("nav-links")
+                                .child(Button.create().text("Home")
+                                        .onClick(e -> currentPage.setString("home"))
+                                        .className("nav-btn").build())
+                                .child(Button.create().text("About")
+                                        .onClick(e -> currentPage.setString("about"))
+                                        .className("nav-btn").build())
+                                .child(Button.create().text("Contact")
+                                        .onClick(e -> currentPage.setString("contact"))
+                                        .className("nav-btn").build())
+                                .build())
+                        .build())
+                .child(Div.create().className("content")
+                        .child(renderNavPage(currentPage.getString()))
+                        .build())
+                .build();
+    }
+
+    static ReactElement renderNavPage(String page) {
+        if ("about".equals(page)) {
+            return Div.create()
+                    .child(H4.create().text("About Page").build())
+                    .child(P.create().text("This is the about page, rendered with DomBuilder.").build())
+                    .build();
+        } else if ("contact".equals(page)) {
+            return Div.create()
+                    .child(H4.create().text("Contact Page").build())
+                    .child(P.create().text("This is the contact page.").build())
+                    .build();
+        } else {
+            return Div.create()
+                    .child(H4.create().text("Home Page").build())
+                    .child(P.create().text("Welcome! Click the buttons above to navigate.").build())
+                    .build();
+        }
+    }
+
+    // =========================================================================
     // 2A. Counter — Builder DSL
     // =========================================================================
-    static final JSObject counterBuilder = React.wrapComponent(props -> {
+    static ReactElement renderCounterBuilder(JSObject props) {
         var count = Hooks.useState(0);
 
         return Div.create()
@@ -329,12 +372,12 @@ public class App {
             .child(Button.create().text("Reset")
                 .onClick(e -> count.setInt(0)))
             .build();
-    }, "CounterBuilder");
+    }
 
     // =========================================================================
     // 2B. Item List — Builder DSL with forEach
     // =========================================================================
-    static final JSObject itemListBuilder = React.wrapComponent(props -> {
+    static ReactElement renderItemListBuilder(JSObject props) {
         String[] fruits = {"Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape"};
         var filter = Hooks.useState("");
 
@@ -357,12 +400,12 @@ public class App {
             .child(P.create().text("Showing " + shown + " of " + fruits.length))
             .child(list)
             .build();
-    }, "ItemListBuilder");
+    }
 
     // =========================================================================
     // 2C. Form — Builder DSL with multiple inputs
     // =========================================================================
-    static final JSObject formBuilder = React.wrapComponent(props -> {
+    static ReactElement renderFormBuilder(JSObject props) {
         var name = Hooks.useState("");
         var email = Hooks.useState("");
         var message = Hooks.useState("");
@@ -409,7 +452,7 @@ public class App {
                 .onClick(e -> submitted.setBool(true))
                 .disabled(name.getString().isEmpty() || email.getString().isEmpty()))
             .build();
-    }, "FormBuilder");
+    }
 
     // =========================================================================
     // 3A. Counter — Class-based
@@ -506,12 +549,12 @@ public class App {
     // =========================================================================
     // 4A. useRef Demo
     // =========================================================================
-    static final JSObject useRefDemo = React.wrapComponent(props -> {
+    static ReactElement renderUseRefDemo(JSObject props) {
         var renderCount = Hooks.useRefInt(0);
         var inputValue = Hooks.useState("");
 
         // Increment render count on every render
-        renderCount.setCurrent(React.intToJS(renderCount.getCurrentInt() + 1));
+        renderCount.setCurrentInt(renderCount.getCurrentInt() + 1);
 
         return div(
             h3("useRef — Render Counter"),
@@ -523,22 +566,21 @@ public class App {
                 .placeholder("Type to re-render...")
                 .build()
         );
-    }, "UseRefDemo");
+    }
 
     // =========================================================================
     // 4B. useContext Demo — consumes theme from root
     // =========================================================================
-    static final JSObject useContextDemo = React.wrapComponent(props -> {
-        JSObject themeValue = Hooks.useContext(THEME_CTX.jsContext());
-        String theme = React.jsToString(themeValue);
+    static ReactElement renderUseContextDemo(JSObject props) {
+        String theme = THEME_CTX.useString();
         boolean isDark = theme.equals("dark");
 
-        JSObject style = React.createObject();
-        React.setProperty(style, "background", isDark ? "#333" : "#f0f0f0");
-        React.setProperty(style, "color", isDark ? "#fff" : "#333");
-        React.setProperty(style, "padding", "16px");
-        React.setProperty(style, "borderRadius", "8px");
-        React.setProperty(style, "marginBottom", "12px");
+        Style style = Style.create()
+            .background(isDark ? "#333" : "#f0f0f0")
+            .color(isDark ? "#fff" : "#333")
+            .padding("16px")
+            .borderRadius("8px")
+            .set("marginBottom", "12px");
 
         return div(
             h3("useContext — Theme Consumer"),
@@ -550,12 +592,12 @@ public class App {
                     : "Light mode is active. Click the toggle above to switch."))
                 .build()
         );
-    }, "UseContextDemo");
+    }
 
     // =========================================================================
     // 4C. useMemo Demo — expensive computation
     // =========================================================================
-    static final JSObject useMemoDemo = React.wrapComponent(props -> {
+    static ReactElement renderUseMemoDemo(JSObject props) {
         var number = Hooks.useState(10);
         var dummy = Hooks.useState(0);
 
@@ -575,7 +617,7 @@ public class App {
             p("Unrelated counter (re-renders without recomputing fib): " + dummy.getInt()),
             button("Increment unrelated").onClick(e -> dummy.updateInt(d -> d + 1)).build()
         );
-    }, "UseMemoDemo");
+    }
 
     static int fibonacci(int n) {
         if (n <= 1) return n;
@@ -591,7 +633,7 @@ public class App {
     // =========================================================================
     // 5. HTML Elements Showcase
     // =========================================================================
-    static final JSObject htmlElementsDemo = React.wrapComponent(props -> {
+    static ReactElement renderHtmlElementsDemo(JSObject props) {
         return div(
             h3("HTML Elements Gallery"),
 
@@ -722,5 +764,5 @@ public class App {
                 )
             )
         );
-    }, "HtmlElementsDemo");
+    }
 }

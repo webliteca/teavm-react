@@ -8,13 +8,15 @@ All handlers are in `ca.weblite.teavmreact.events`. Every handler interface is a
 
 | Interface | Method Signature | Event Object |
 |-----------|-----------------|--------------|
-| `EventHandler` | `handleEvent(JSObject event)` | Generic event |
+| `EventHandler` | `handleEvent(SyntheticEvent event)` | `SyntheticEvent` |
 | `ChangeEventHandler` | `handleEvent(ChangeEvent event)` | `ChangeEvent` |
 | `KeyboardEventHandler` | `handleEvent(KeyboardEvent event)` | `KeyboardEvent` |
-| `FocusEventHandler` | `handleEvent(JSObject event)` | Generic event |
-| `SubmitEventHandler` | `handleEvent(JSObject event)` | Generic event |
+| `FocusEventHandler` | `handleEvent(FocusEvent event)` | `FocusEvent` |
+| `SubmitEventHandler` | `handleEvent(SubmitEvent event)` | `SubmitEvent` |
 
-Note: `MouseEvent` exists as an interface for reading event properties, but mouse event handlers use `EventHandler`. Cast the `JSObject` to `MouseEvent` to access mouse-specific properties.
+All event types extend `SyntheticEvent`, which provides `getTarget()`, `getType()`, `getBubbles()`, `preventDefault()`, and `stopPropagation()`. The `getTarget()` method returns an `EventTarget` with typed properties like `getValue()`, `getChecked()`, `getId()`, `getTagName()`, and `getClassName()`.
+
+`MouseEvent` extends `SyntheticEvent` and adds mouse-specific properties. Mouse event handlers use `EventHandler`, so cast the `SyntheticEvent` to `MouseEvent` when needed.
 
 ## Mapping Handlers to React Props
 
@@ -32,9 +34,37 @@ Note: `MouseEvent` exists as an interface for reading event properties, but mous
 | `onMouseEnter` | `EventHandler` | `React.setOnMouseEnter(props, h)` | `.onMouseEnter(h)` |
 | `onMouseLeave` | `EventHandler` | `React.setOnMouseLeave(props, h)` | `.onMouseLeave(h)` |
 
+## SyntheticEvent Hierarchy
+
+All events extend `SyntheticEvent`:
+
+```
+SyntheticEvent (getTarget, preventDefault, stopPropagation)
+├── ChangeEvent
+├── KeyboardEvent (getKey, getCode, getAltKey, getCtrlKey, ...)
+├── MouseEvent (getClientX, getClientY, getButton, ...)
+├── FocusEvent (getRelatedTarget)
+└── SubmitEvent
+```
+
+### EventTarget Interface
+
+`SyntheticEvent.getTarget()` returns an `EventTarget`:
+
+```java
+public interface EventTarget extends JSObject {
+    String getValue();       // text input value
+    boolean getChecked();    // checkbox state
+    String getType();        // input type attribute
+    String getId();          // element id
+    String getTagName();     // e.g., "INPUT", "BUTTON"
+    String getClassName();   // CSS class(es)
+}
+```
+
 ## onClick -- EventHandler
 
-The most common event handler. Receives a generic `JSObject` event.
+The most common event handler. Receives a `SyntheticEvent`.
 
 ### Java Functional
 
@@ -66,18 +96,12 @@ button {
 
 Used for text inputs, checkboxes, selects. The `ChangeEvent` provides typed access to the input's value.
 
-### ChangeEvent Interface
+`ChangeEvent` extends `SyntheticEvent`. Access input properties via `getTarget()`:
 
 ```java
-public interface ChangeEvent extends JSObject {
-    @JSProperty InputTarget getTarget();
-
-    interface InputTarget extends JSObject {
-        @JSProperty String getValue();     // text input value
-        @JSProperty boolean getChecked();  // checkbox state
-        @JSProperty String getType();      // input type attribute
-    }
-}
+// event.getTarget() returns EventTarget with getValue(), getChecked(), etc.
+e.getTarget().getValue()     // text input value
+e.getTarget().getChecked()   // checkbox state
 ```
 
 ### Text Input (Java)
@@ -126,19 +150,17 @@ input("checkbox") {
 
 ## onKeyDown / onKeyUp -- KeyboardEventHandler with KeyboardEvent
 
-### KeyboardEvent Interface
+`KeyboardEvent` extends `SyntheticEvent` and adds:
 
 ```java
-public interface KeyboardEvent extends JSObject {
-    @JSProperty String getKey();        // "Enter", "Escape", "a", etc.
-    @JSProperty String getCode();       // "KeyA", "Enter", "Space", etc.
-    @JSProperty boolean getAltKey();
-    @JSProperty boolean getCtrlKey();
-    @JSProperty boolean getMetaKey();
-    @JSProperty boolean getShiftKey();
-    @JSProperty boolean getRepeat();    // true if key held down
-    @JSProperty JSObject getTarget();
-}
+String getKey()        // "Enter", "Escape", "a", etc.
+String getCode()       // "KeyA", "Enter", "Space", etc.
+boolean getAltKey()
+boolean getCtrlKey()
+boolean getMetaKey()
+boolean getShiftKey()
+boolean getRepeat()    // true if key held down
+// getTarget() inherited from SyntheticEvent
 ```
 
 ### Detecting Enter Key (Java)
@@ -170,7 +192,7 @@ div {
 
 ## onFocus / onBlur -- FocusEventHandler
 
-Both receive a generic `JSObject` event. Used for tracking focus state.
+Both receive a `FocusEvent` (extends `SyntheticEvent`, adds `getRelatedTarget()`). Used for tracking focus state.
 
 ### Java Example
 
@@ -198,14 +220,7 @@ input("text") {
 
 ## onSubmit -- Form Handling with SubmitEventHandler
 
-Receives a generic `JSObject` event. To call `preventDefault()`, use `@JSBody` since the event object is untyped.
-
-### preventDefault via @JSBody
-
-```java
-@JSBody(params = {"event"}, script = "event.preventDefault();")
-private static native void preventDefault(JSObject event);
-```
+Receives a `SubmitEvent` (extends `SyntheticEvent`). Call `preventDefault()` directly on the event object.
 
 ### Java Form Example
 
@@ -227,7 +242,7 @@ static ReactElement loginForm(JSObject props) {
         ),
         button("Submit").type("submit").build()
     ).onSubmit(e -> {
-        preventDefault(e);
+        e.preventDefault();
         submitLogin(email.getString(), password.getString());
     }).build();
 ```
@@ -239,7 +254,7 @@ Note: `form(...)` returns an `ElementBuilder` (when called on `Html.form(String 
 ```kotlin
 form {
     onSubmit { e ->
-        preventDefault(e)
+        e.preventDefault()
         submitLogin(email, password)
     }
     // form fields...
@@ -249,20 +264,20 @@ form {
 
 ## MouseEvent Interface
 
-For reading mouse-specific properties from click or mouse events. Cast the `JSObject` from an `EventHandler` to `MouseEvent`:
+`MouseEvent` extends `SyntheticEvent` and adds mouse-specific properties. Cast the `SyntheticEvent` from an `EventHandler` to `MouseEvent`:
 
 ```java
-public interface MouseEvent extends JSObject {
-    @JSProperty double getClientX();
-    @JSProperty double getClientY();
-    @JSProperty double getPageX();
-    @JSProperty double getPageY();
-    @JSProperty int getButton();        // 0=left, 1=middle, 2=right
-    @JSProperty boolean getAltKey();
-    @JSProperty boolean getCtrlKey();
-    @JSProperty boolean getMetaKey();
-    @JSProperty boolean getShiftKey();
-    @JSProperty JSObject getTarget();
+public interface MouseEvent extends SyntheticEvent {
+    double getClientX();
+    double getClientY();
+    double getPageX();
+    double getPageY();
+    int getButton();        // 0=left, 1=middle, 2=right
+    boolean getAltKey();
+    boolean getCtrlKey();
+    boolean getMetaKey();
+    boolean getShiftKey();
+    // getTarget() inherited from SyntheticEvent
 }
 ```
 

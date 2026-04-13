@@ -5,5 +5,5 @@ import org.teavm.jso.JSObject;
 
 @JSFunctor
 public interface EventHandler extends JSObject {
-    void handleEvent(JSObject event);
+    void handleEvent(SyntheticEvent event);
 }

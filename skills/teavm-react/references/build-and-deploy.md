@@ -264,6 +264,20 @@ Add this plugin to copy `src/main/webapp/` (HTML, CSS, images) to `target/webapp
 </plugin>
 ```
 
+## AI Skills Packaging
+
+The `skills-jar-plugin` (now on Maven Central) packages AI assistant skills alongside library JARs. No GitHub Packages authentication is required.
+
+```bash
+# Install skills from dependencies into .claude/skills/
+mvn ca.weblite:skills-jar-plugin:install
+
+# List available skills without installing
+mvn ca.weblite:skills-jar-plugin:list
+```
+
+The skill JAR is built automatically during `mvn package`.
+
 ## CI Pipeline (GitHub Actions)
 
 ```yaml

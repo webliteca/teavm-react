@@ -2,7 +2,6 @@ package ca.weblite.teavmreact.kotlin
 
 import ca.weblite.teavmreact.hooks.Hooks
 import ca.weblite.teavmreact.hooks.StateHandle
-import org.teavm.jso.JSObject
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -91,26 +90,6 @@ class DoubleStateDelegate(initial: Double) : ReadWriteProperty<Any?, Double> {
 }
 
 fun state(initial: Double): DoubleStateDelegate = DoubleStateDelegate(initial)
-
-// ========================================================================
-// JSObject state (generic fallback for complex objects)
-// ========================================================================
-
-class JsObjectStateDelegate(initial: JSObject?) : ReadWriteProperty<Any?, JSObject?> {
-    private val handle: StateHandle<JSObject> = if (initial != null) {
-        Hooks.useState(initial)
-    } else {
-        Hooks.useState(null as JSObject?)
-    }
-
-    override fun getValue(thisRef: Any?, property: KProperty<*>): JSObject? = handle.get()
-
-    override fun setValue(thisRef: Any?, property: KProperty<*>, value: JSObject?) {
-        handle.set(value as JSObject)
-    }
-}
-
-fun state(initial: JSObject?): JsObjectStateDelegate = JsObjectStateDelegate(initial)
 
 // ========================================================================
 // List<String> state — stored as JSON string in JS, exposed as List

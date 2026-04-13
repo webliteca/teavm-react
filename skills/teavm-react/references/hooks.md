@@ -23,19 +23,16 @@ StateHandle<Integer>  Hooks.useState(int initial)
 StateHandle<String>   Hooks.useState(String initial)
 StateHandle<Boolean>  Hooks.useState(boolean initial)
 StateHandle<Double>   Hooks.useState(double initial)
-StateHandle<JSObject> Hooks.useState(JSObject initial)
 ```
 
 ### StateHandle Methods
 
 | Method | Description |
 |--------|-------------|
-| `get()` | Get value as the generic type |
 | `getInt()` | Get as `int` |
 | `getString()` | Get as `String` |
 | `getBool()` | Get as `boolean` |
 | `getDouble()` | Get as `double` |
-| `set(T value)` | Set value (generic) |
 | `setInt(int value)` | Set int value |
 | `setString(String value)` | Set String value |
 | `setBool(boolean value)` | Set boolean value |
@@ -81,7 +78,6 @@ val Counter = fc("Counter") {
     var name by state("World")      // StringStateDelegate
     var visible by state(true)      // BooleanStateDelegate
     var opacity by state(1.0)       // DoubleStateDelegate
-    var data by state(null as JSObject?)  // JsObjectStateDelegate
 
     div {
         h2 { +"Count: $count" }
@@ -189,11 +185,14 @@ RefHandle Hooks.useRefString(String initial)
 
 | Method | Description |
 |--------|-------------|
-| `raw()` | Get the underlying React ref object (for passing to `ref` prop) |
-| `getCurrent()` | Get current value as `JSObject` |
-| `setCurrent(JSObject value)` | Set current value |
 | `getCurrentString()` | Get current as `String` |
 | `getCurrentInt()` | Get current as `int` |
+| `getCurrentBool()` | Get current as `boolean` |
+| `getCurrentDouble()` | Get current as `double` |
+| `setCurrentString(String value)` | Set current as `String` |
+| `setCurrentInt(int value)` | Set current as `int` |
+| `setCurrentBool(boolean value)` | Set current as `boolean` |
+| `setCurrentDouble(double value)` | Set current as `double` |
 
 ### Java Example -- Mutable Counter (No Re-render)
 
@@ -201,7 +200,7 @@ RefHandle Hooks.useRefString(String initial)
 RefHandle renderCount = Hooks.useRefInt(0);
 
 Hooks.useEffect(() -> {
-    renderCount.setCurrent(React.intToJS(renderCount.getCurrentInt() + 1));
+    renderCount.setCurrentInt(renderCount.getCurrentInt() + 1);
     return null;
 });
 ```
@@ -210,7 +209,7 @@ Hooks.useEffect(() -> {
 
 ```kotlin
 var intervalId by refInt(0)
-var inputRef by ref(null)
+var nameRef by refString("")
 
 effectOnce {
     intervalId = JsUtil.setInterval({ /* tick */ }, 1000)
@@ -313,19 +312,17 @@ JSObject dispatch = result[1]; // dispatch function
 
 Reads the current value from a React context. See `references/context.md` for full context API.
 
-### Signature (Java)
+### Java: Typed Methods on ReactContext
+
+`ReactContext` provides typed consumption methods directly — no raw `JSObject` needed:
 
 ```java
-JSObject Hooks.useContext(JSObject context)
-```
+ReactContext themeCtx = ReactContext.create("light");
 
-### Java Example
-
-```java
-ReactContext themeCtx = ReactContext.create(React.stringToJS("light"));
-// ...
-JSObject theme = Hooks.useContext(themeCtx.jsContext());
-String themeStr = React.jsToString(theme);
+// In a component render:
+String theme = themeCtx.useString();
+int count = countCtx.useInt();
+boolean auth = authCtx.useBool();
 ```
 
 ### Kotlin DSL

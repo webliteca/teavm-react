@@ -5,5 +5,5 @@ import org.teavm.jso.JSObject;
 
 @JSFunctor
 public interface FocusEventHandler extends JSObject {
-    void handleEvent(JSObject event);
+    void handleEvent(FocusEvent event);
 }

@@ -34,7 +34,6 @@ class ComponentScope(@PublishedApi internal val props: JSObject) {
     fun state(initial: String): StringStateDelegate = ca.weblite.teavmreact.kotlin.state(initial)
     fun state(initial: Boolean): BooleanStateDelegate = ca.weblite.teavmreact.kotlin.state(initial)
     fun state(initial: Double): DoubleStateDelegate = ca.weblite.teavmreact.kotlin.state(initial)
-    fun state(initial: JSObject?): JsObjectStateDelegate = ca.weblite.teavmreact.kotlin.state(initial)
     fun stateList(vararg initial: String): StringListStateDelegate = ca.weblite.teavmreact.kotlin.stateList(*initial)
     fun stateList(initial: List<String> = emptyList()): StringListStateDelegate = ca.weblite.teavmreact.kotlin.stateList(initial)
 
@@ -42,7 +41,6 @@ class ComponentScope(@PublishedApi internal val props: JSObject) {
     // Ref hooks
     // ====================================================================
 
-    fun ref(initial: JSObject? = null): RefDelegate = ca.weblite.teavmreact.kotlin.ref(initial)
     fun refInt(initial: Int = 0): IntRefDelegate = ca.weblite.teavmreact.kotlin.refInt(initial)
     fun refString(initial: String = ""): StringRefDelegate = ca.weblite.teavmreact.kotlin.refString(initial)
 

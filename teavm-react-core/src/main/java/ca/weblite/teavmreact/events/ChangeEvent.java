@@ -1,20 +1,9 @@
 package ca.weblite.teavmreact.events;
 
-import org.teavm.jso.JSObject;
-import org.teavm.jso.JSProperty;
-
-public interface ChangeEvent extends JSObject {
-    @JSProperty
-    InputTarget getTarget();
-
-    interface InputTarget extends JSObject {
-        @JSProperty
-        String getValue();
-
-        @JSProperty
-        boolean getChecked();
-
-        @JSProperty
-        String getType();
-    }
+/**
+ * Typed interface for React change events. The event target
+ * (from {@link SyntheticEvent#getTarget()}) provides access to
+ * input element properties like getValue() and getChecked().
+ */
+public interface ChangeEvent extends SyntheticEvent {
 }
