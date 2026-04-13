@@ -1,16 +1,13 @@
 package ca.weblite.teavmreact.kotlin
 
-import ca.weblite.teavmreact.core.React
 import ca.weblite.teavmreact.core.ReactContext
 import ca.weblite.teavmreact.core.ReactElement
-import ca.weblite.teavmreact.hooks.Hooks
-import org.teavm.jso.JSObject
 
 /**
  * Type-safe wrapper around React context. Avoids JSObject casting.
  *
  * ```
- * val ThemeContext = createContext("light")
+ * val ThemeContext = createStringContext("light")
  *
  * // Provider
  * ThemeContext.provide("dark") {
@@ -23,8 +20,8 @@ import org.teavm.jso.JSObject
  */
 class TypedContext<T> @PublishedApi internal constructor(
     @PublishedApi internal val reactContext: ReactContext,
-    @PublishedApi internal val serialize: (T) -> JSObject,
-    @PublishedApi internal val deserialize: (JSObject) -> T
+    @PublishedApi internal val provideImpl: (ReactContext, T, Array<ReactElement>) -> ReactElement,
+    @PublishedApi internal val useImpl: (ReactContext) -> T
 ) {
     /**
      * Wrap children with this context's Provider, supplying the given value.
@@ -32,8 +29,7 @@ class TypedContext<T> @PublishedApi internal constructor(
     fun provide(value: T, block: HtmlBuilder.() -> Unit): ReactElement {
         val builder = HtmlBuilder("__provider__")
         builder.block()
-        val jsValue = serialize(value)
-        return reactContext.provide(jsValue, *builder.children.toTypedArray())
+        return provideImpl(reactContext, value, builder.children.toTypedArray())
     }
 }
 
@@ -43,45 +39,31 @@ class TypedContext<T> @PublishedApi internal constructor(
 
 /** Create a typed String context */
 fun createStringContext(defaultValue: String): TypedContext<String> {
-    val ctx = ReactContext.create(React.stringToJS(defaultValue))
+    val ctx = ReactContext.create(defaultValue)
     return TypedContext(
         ctx,
-        serialize = { React.stringToJS(it) },
-        deserialize = { React.jsToString(it) }
+        provideImpl = { rc, value, children -> rc.provide(value, *children) },
+        useImpl = { rc -> rc.useString() }
     )
 }
 
 /** Create a typed Int context */
 fun createIntContext(defaultValue: Int): TypedContext<Int> {
-    val ctx = ReactContext.create(React.intToJS(defaultValue))
+    val ctx = ReactContext.create(defaultValue)
     return TypedContext(
         ctx,
-        serialize = { React.intToJS(it) },
-        deserialize = { React.jsToInt(it) }
+        provideImpl = { rc, value, children -> rc.provide(value, *children) },
+        useImpl = { rc -> rc.useInt() }
     )
 }
 
 /** Create a typed Boolean context */
 fun createBoolContext(defaultValue: Boolean): TypedContext<Boolean> {
-    val ctx = ReactContext.create(React.boolToJS(defaultValue))
+    val ctx = ReactContext.create(defaultValue)
     return TypedContext(
         ctx,
-        serialize = { React.boolToJS(it) },
-        deserialize = { React.jsToBool(it) }
-    )
-}
-
-/** Create a typed JSObject context */
-fun createContext(defaultValue: JSObject?): TypedContext<JSObject?> {
-    val ctx = if (defaultValue != null) {
-        ReactContext.create(defaultValue)
-    } else {
-        ReactContext.create()
-    }
-    return TypedContext(
-        ctx,
-        serialize = { it ?: React.createObject() },
-        deserialize = { it }
+        provideImpl = { rc, value, children -> rc.provide(value, *children) },
+        useImpl = { rc -> rc.useBool() }
     )
 }
 
@@ -89,25 +71,7 @@ fun createContext(defaultValue: JSObject?): TypedContext<JSObject?> {
 // useContext — typed consumer
 // ========================================================================
 
-/** Read a typed String context value */
-fun ComponentScope.useContext(ctx: TypedContext<String>): String {
-    val jsValue = Hooks.useContext(ctx.reactContext.jsContext())
-    return ctx.deserialize(jsValue)
-}
-
-/** Read a typed Int context value */
-fun ComponentScope.useContext(ctx: TypedContext<Int>): Int {
-    val jsValue = Hooks.useContext(ctx.reactContext.jsContext())
-    return ctx.deserialize(jsValue)
-}
-
-/** Read a typed Boolean context value */
-fun ComponentScope.useContext(ctx: TypedContext<Boolean>): Boolean {
-    val jsValue = Hooks.useContext(ctx.reactContext.jsContext())
-    return ctx.deserialize(jsValue)
-}
-
-/** Read a typed JSObject context value */
-fun ComponentScope.useContext(ctx: TypedContext<JSObject?>): JSObject? {
-    return Hooks.useContext(ctx.reactContext.jsContext())
+/** Read a typed context value during render. */
+fun <T> ComponentScope.useContext(ctx: TypedContext<T>): T {
+    return ctx.useImpl(ctx.reactContext)
 }

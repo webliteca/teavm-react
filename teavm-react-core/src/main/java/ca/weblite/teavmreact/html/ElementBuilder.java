@@ -7,6 +7,7 @@ import ca.weblite.teavmreact.events.EventHandler;
 import ca.weblite.teavmreact.events.FocusEventHandler;
 import ca.weblite.teavmreact.events.KeyboardEventHandler;
 import ca.weblite.teavmreact.events.SubmitEventHandler;
+import org.teavm.jso.JSObject;
 
 /**
  * Builder for interactive HTML elements that need props such as event handlers,

@@ -338,20 +338,22 @@ public class App {
     }
 
     static ReactElement renderNavPage(String page) {
-        return switch (page) {
-            case "about" -> Div.create()
+        if ("about".equals(page)) {
+            return Div.create()
                     .child(H4.create().text("About Page").build())
                     .child(P.create().text("This is the about page, rendered with DomBuilder.").build())
                     .build();
-            case "contact" -> Div.create()
+        } else if ("contact".equals(page)) {
+            return Div.create()
                     .child(H4.create().text("Contact Page").build())
                     .child(P.create().text("This is the contact page.").build())
                     .build();
-            default -> Div.create()
+        } else {
+            return Div.create()
                     .child(H4.create().text("Home Page").build())
                     .child(P.create().text("Welcome! Click the buttons above to navigate.").build())
                     .build();
-        };
+        }
     }
 
     // =========================================================================

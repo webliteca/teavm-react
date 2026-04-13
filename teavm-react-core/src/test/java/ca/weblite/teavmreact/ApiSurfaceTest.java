@@ -126,7 +126,6 @@ public class ApiSurfaceTest {
     @Test
     void stateHandleHasTypedGetters() {
         Set<String> methods = getPublicMethodNames(StateHandle.class);
-        assertTrue(methods.contains("get"));
         assertTrue(methods.contains("getString"));
         assertTrue(methods.contains("getInt"));
         assertTrue(methods.contains("getBool"));
@@ -136,7 +135,6 @@ public class ApiSurfaceTest {
     @Test
     void stateHandleHasTypedSetters() {
         Set<String> methods = getPublicMethodNames(StateHandle.class);
-        assertTrue(methods.contains("set"));
         assertTrue(methods.contains("setInt"));
         assertTrue(methods.contains("setString"));
         assertTrue(methods.contains("setBool"));
@@ -154,11 +152,12 @@ public class ApiSurfaceTest {
     void refHandleClassExists() {
         assertNotNull(RefHandle.class);
         Set<String> methods = getPublicMethodNames(RefHandle.class);
-        assertTrue(methods.contains("raw"));
-        assertTrue(methods.contains("getCurrent"));
-        assertTrue(methods.contains("setCurrent"));
         assertTrue(methods.contains("getCurrentString"));
         assertTrue(methods.contains("getCurrentInt"));
+        assertTrue(methods.contains("getCurrentBool"));
+        assertTrue(methods.contains("getCurrentDouble"));
+        assertTrue(methods.contains("setCurrentString"));
+        assertTrue(methods.contains("setCurrentInt"));
     }
 
     @Test
@@ -335,9 +334,10 @@ public class ApiSurfaceTest {
     @Test
     void reactContextHasInstanceMethods() {
         Set<String> methods = getPublicMethodNames(ReactContext.class);
-        assertTrue(methods.contains("jsContext"));
-        assertTrue(methods.contains("provider"));
         assertTrue(methods.contains("provide"));
+        assertTrue(methods.contains("useString"));
+        assertTrue(methods.contains("useInt"));
+        assertTrue(methods.contains("useBool"));
     }
 
     // ====================================================================

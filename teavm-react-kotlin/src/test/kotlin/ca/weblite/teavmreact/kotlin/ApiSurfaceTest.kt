@@ -84,11 +84,6 @@ class ApiSurfaceTest {
     // ====================================================================
 
     @Test
-    fun `RefDelegate class exists`() {
-        assertNotNull(RefDelegate::class)
-    }
-
-    @Test
     fun `IntRefDelegate class exists`() {
         assertNotNull(IntRefDelegate::class)
     }
