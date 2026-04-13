@@ -1,6 +1,6 @@
 # Context Reference
 
-Read this file when you need to share state across components without prop drilling. Covers Java `ReactContext`, Kotlin `TypedContext`, providing values, and consuming with `useContext`.
+Read this file when you need to share state across components without prop drilling. Covers Java `ReactContext`, Kotlin `TypedContext`, providing values, and consuming with typed methods.
 
 ## Java: ReactContext
 
@@ -8,13 +8,14 @@ Read this file when you need to share state across components without prop drill
 
 ```java
 import ca.weblite.teavmreact.core.ReactContext;
-import ca.weblite.teavmreact.core.React;
 
 // No default value
 ReactContext themeCtx = ReactContext.create();
 
-// With default value
-ReactContext themeCtx = ReactContext.create(React.stringToJS("light"));
+// Typed default values
+ReactContext themeCtx = ReactContext.create("light");     // String
+ReactContext countCtx = ReactContext.create(0);           // int
+ReactContext authCtx  = ReactContext.create(false);       // boolean
 ```
 
 ### ReactContext Methods
@@ -22,39 +23,43 @@ ReactContext themeCtx = ReactContext.create(React.stringToJS("light"));
 | Method | Return Type | Description |
 |--------|------------|-------------|
 | `create()` | `ReactContext` | Create context without default |
-| `create(JSObject defaultValue)` | `ReactContext` | Create context with default |
-| `jsContext()` | `JSObject` | Get raw JS context object (for `useContext`) |
-| `provider()` | `JSObject` | Get the Provider component |
-| `provide(JSObject value, ReactElement... children)` | `ReactElement` | Wrap children with a Provider |
+| `create(String defaultValue)` | `ReactContext` | Create context with String default |
+| `create(int defaultValue)` | `ReactContext` | Create context with int default |
+| `create(boolean defaultValue)` | `ReactContext` | Create context with boolean default |
+| `useString()` | `String` | Read context value as String (during render) |
+| `useInt()` | `int` | Read context value as int (during render) |
+| `useBool()` | `boolean` | Read context value as boolean (during render) |
+| `provide(String value, ReactElement... children)` | `ReactElement` | Wrap children with String provider |
+| `provide(int value, ReactElement... children)` | `ReactElement` | Wrap children with int provider |
+| `provide(boolean value, ReactElement... children)` | `ReactElement` | Wrap children with boolean provider |
 
 ### Providing a Value (Java)
 
 ```java
-static final ReactContext ThemeCtx = ReactContext.create(React.stringToJS("light"));
+static final ReactContext ThemeCtx = ReactContext.create("light");
 
 static ReactElement app(JSObject props) {
     StateHandle<String> theme = Hooks.useState("light");
 
     return ThemeCtx.provide(
-        React.stringToJS(theme.getString()),
+        theme.getString(),
         Html.component(ThemedButton),
         Html.component(ThemedPanel)
     );
 }
 ```
 
-### Consuming with useContext (Java)
+### Consuming with useString / useInt / useBool (Java)
 
 ```java
 static ReactElement themedButton(JSObject props) {
-    JSObject themeVal = Hooks.useContext(ThemeCtx.jsContext());
-    String theme = React.jsToString(themeVal);
+    String theme = ThemeCtx.useString();
 
-    JSObject style = React.createObject();
-    React.setProperty(style, "backgroundColor", theme.equals("dark") ? "#333" : "#fff");
-    React.setProperty(style, "color", theme.equals("dark") ? "#fff" : "#333");
-
-    return button("Themed Button").style(style).build();
+    return button("Themed Button")
+        .style(Style.create()
+            .backgroundColor("dark".equals(theme) ? "#333" : "#fff")
+            .color("dark".equals(theme) ? "#fff" : "#333"))
+        .build();
 }
 ```
 
@@ -63,10 +68,10 @@ static ReactElement themedButton(JSObject props) {
 Inner providers override outer ones for their subtree:
 
 ```java
-return ThemeCtx.provide(React.stringToJS("light"),
+return ThemeCtx.provide("light",
     Html.div(
         Html.component(LightChild),            // sees "light"
-        ThemeCtx.provide(React.stringToJS("dark"),
+        ThemeCtx.provide("dark",
             Html.component(DarkChild)           // sees "dark"
         )
     )
@@ -75,7 +80,7 @@ return ThemeCtx.provide(React.stringToJS("light"),
 
 ## Kotlin: TypedContext
 
-The Kotlin DSL provides type-safe context wrappers that eliminate manual `JSObject` conversion.
+The Kotlin DSL provides type-safe context wrappers that eliminate manual conversion.
 
 ### Creating Typed Contexts
 
@@ -85,7 +90,6 @@ import ca.weblite.teavmreact.kotlin.*
 val ThemeContext = createStringContext("light")     // TypedContext<String>
 val CountContext = createIntContext(0)              // TypedContext<Int>
 val AuthContext  = createBoolContext(false)         // TypedContext<Boolean>
-val DataContext  = createContext(null as JSObject?) // TypedContext<JSObject?>
 ```
 
 ### TypedContext Factory Functions
@@ -95,7 +99,6 @@ val DataContext  = createContext(null as JSObject?) // TypedContext<JSObject?>
 | `createStringContext(default)` | `TypedContext<String>` | `String` |
 | `createIntContext(default)` | `TypedContext<Int>` | `Int` |
 | `createBoolContext(default)` | `TypedContext<Boolean>` | `Boolean` |
-| `createContext(default)` | `TypedContext<JSObject?>` | `JSObject?` |
 
 ### Providing Values (Kotlin)
 
@@ -136,14 +139,7 @@ val ThemedContent = fc("ThemedContent") {
 }
 ```
 
-### useContext Overloads (Kotlin)
-
-| Call | Return Type |
-|------|------------|
-| `useContext(TypedContext<String>)` | `String` |
-| `useContext(TypedContext<Int>)` | `Int` |
-| `useContext(TypedContext<Boolean>)` | `Boolean` |
-| `useContext(TypedContext<JSObject?>)` | `JSObject?` |
+The generic `useContext<T>(TypedContext<T>)` works for all typed contexts -- String, Int, and Boolean.
 
 ## Complete Theme-Switching Example
 
@@ -153,10 +149,10 @@ val ThemedContent = fc("ThemedContent") {
 import static ca.weblite.teavmreact.html.Html.*;
 import ca.weblite.teavmreact.core.*;
 import ca.weblite.teavmreact.hooks.*;
+import ca.weblite.teavmreact.html.Style;
 
 public class ThemeApp {
-    static final ReactContext ThemeCtx =
-        ReactContext.create(React.stringToJS("light"));
+    static final ReactContext ThemeCtx = ReactContext.create("light");
 
     static final JSObject ThemeToggle =
         React.wrapComponent(ThemeApp::renderToggle, "ThemeToggle");
@@ -164,24 +160,9 @@ public class ThemeApp {
     static final JSObject ThemedCard =
         React.wrapComponent(ThemeApp::renderCard, "ThemedCard");
 
-    static ReactElement renderToggle(JSObject props) {
-        // This component needs a way to change the theme.
-        // Typically you'd pass the setter via another context or props.
-        return button("Toggle Theme").onClick(e -> {
-            // toggle logic via context or callback prop
-        }).build();
-    }
-
     static ReactElement renderCard(JSObject props) {
-        JSObject raw = Hooks.useContext(ThemeCtx.jsContext());
-        String theme = React.jsToString(raw);
+        String theme = ThemeCtx.useString();
         boolean dark = "dark".equals(theme);
-
-        JSObject style = React.createObject();
-        React.setProperty(style, "backgroundColor", dark ? "#1a1a2e" : "#ffffff");
-        React.setProperty(style, "color", dark ? "#e0e0e0" : "#333333");
-        React.setProperty(style, "padding", "20px");
-        React.setProperty(style, "borderRadius", "8px");
 
         return div(
             h3("Themed Card"),
@@ -197,7 +178,7 @@ public class ThemeApp {
                 theme.updateString(t -> "light".equals(t) ? "dark" : "light")
             ).build(),
             ThemeCtx.provide(
-                React.stringToJS(theme.getString()),
+                theme.getString(),
                 component(ThemedCard)
             )
         );
@@ -243,6 +224,6 @@ val App = fc("App") {
 
 ## Context Gotchas
 
-1. **Context value identity matters.** If you create a new `JSObject` on every render, all consumers re-render. Use `useMemo` or stable references for object values.
+1. **Context value identity matters.** If you create a new object on every render, all consumers re-render. Use `useMemo` or stable references for complex values.
 2. **Declare context objects at module/file level**, not inside render functions. Creating a context inside a render function creates a new context on every render.
-3. **Java requires manual JSObject conversion.** Always use `React.stringToJS()` / `React.jsToString()` when providing/consuming string values. Kotlin's `TypedContext` handles this automatically.
+3. **Java uses typed methods.** Use the matching `create(String)` / `provide(String, ...)` / `useString()` for String contexts, and similarly for `int` and `boolean`.

@@ -84,7 +84,6 @@ Supported types:
 - `state(String)` -- `StringStateDelegate`
 - `state(Boolean)` -- `BooleanStateDelegate`
 - `state(Double)` -- `DoubleStateDelegate`
-- `state(JSObject?)` -- `JsObjectStateDelegate`
 - `stateList(vararg String)` or `stateList(List<String>)` -- `StringListStateDelegate`
 
 Reading and writing is transparent via Kotlin property syntax.
@@ -146,17 +145,17 @@ div {
 ## Event Handlers
 
 ```kotlin
-// Click
+// Click (SyntheticEvent)
 button {
     +"Click me"
-    onClick { e -> /* JSObject event */ }
+    onClick { e -> /* SyntheticEvent */ }
 }
 
-// Change (typed ChangeEvent)
+// Change (ChangeEvent extends SyntheticEvent)
 input("text") {
     value(currentText)
     onChange { e ->
-        val newVal = e.target.value     // ChangeEvent.getTarget().getValue()
+        val newVal = e.target.value     // EventTarget.getValue()
     }
 }
 
@@ -360,7 +359,6 @@ Properties are automatically converted from kebab-case to camelCase.
 ## Ref Delegates
 
 ```kotlin
-var inputRef by ref()                    // JSObject? ref
 var countRef by refInt(0)                // Int ref
 var nameRef by refString("")             // String ref
 ```
@@ -370,14 +368,7 @@ Read/write transparently:
 ```kotlin
 countRef++                    // update ref (no re-render)
 println(countRef)             // read current value
-```
-
-Pass to DOM elements:
-
-```kotlin
-input("text") {
-    ref(inputRef.handle.raw())   // pass underlying ref object
-}
+nameRef = "hello"             // update string ref
 ```
 
 ## Effects

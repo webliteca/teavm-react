@@ -113,19 +113,17 @@ public class PollingView extends ReactView {
 Declare refs as field initializers:
 
 ```java
-public class FocusView extends ReactView {
-    private final RefHandle inputRef = Hooks.useRef(null);
-
-    @Override
-    protected void onMount() {
-        // Focus the input on mount (if needed via JS interop)
-    }
+public class TrackingView extends ReactView {
+    private final RefHandle renderCount = Hooks.useRefInt(0);
 
     @Override
     protected ReactElement render() {
+        Hooks.useEffect(() -> {
+            renderCount.setCurrentInt(renderCount.getCurrentInt() + 1);
+            return null;
+        });
         return div(
-            input("text").prop("ref", inputRef.raw()).build(),
-            p("Render count can be tracked with useRefInt")
+            p("This component has rendered " + renderCount.getCurrentInt() + " times")
         );
     }
 }
@@ -140,25 +138,6 @@ ReactView.view(Counter::new, "Counter")
 ```
 
 This creates the component and renders it in one call. The result is a `ReactElement`.
-
-### With Props
-
-```java
-JSObject props = React.createObject();
-React.setProperty(props, "title", "My Counter");
-
-ReactView.view(Counter::new, "Counter", props)
-```
-
-### As a Reusable JSObject Component
-
-```java
-JSObject CounterComp = ReactView.toComponent(Counter::new, "Counter");
-
-// Use it multiple times
-component(CounterComp)
-component(CounterComp, someProps)
-```
 
 ### Inside Other Components
 
@@ -187,7 +166,7 @@ public class Dashboard extends ReactView {
 
 ## ViewFactory Interface
 
-`ReactView.toComponent()` and `ReactView.view()` accept a `ViewFactory`:
+`ReactView.view()` accepts a `ViewFactory`:
 
 ```java
 @FunctionalInterface

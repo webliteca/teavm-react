@@ -322,7 +322,32 @@ val MyComp = fc("MyComp") {
 
 **Fix:** Never store strings containing the null character (`\0`) in a `stateList`. This is extremely rare in practice but worth knowing.
 
-## 18. Forgetting to Wrap Component for Rendering
+## 18. Using Removed JSObject-Based Methods
+
+**Symptom:** `cannot find symbol` for `StateHandle.get()`, `StateHandle.set()`, `RefHandle.raw()`, `RefHandle.getCurrent()`, `RefHandle.setCurrent()`, `ReactContext.jsContext()`, `ReactContext.provider()`, or `Hooks.useState(JSObject)`.
+
+**Cause:** These generic JSObject-based methods were removed to reduce abstraction leakage. The library now provides typed methods only.
+
+**Fix:** Use the typed equivalents:
+
+```java
+// StateHandle: use typed getters/setters
+count.getInt();       // instead of (int) count.get()
+count.setInt(5);      // instead of count.set(React.intToJS(5))
+
+// RefHandle: use typed getters/setters
+ref.getCurrentString();       // instead of React.jsToString(ref.getCurrent())
+ref.setCurrentInt(42);        // instead of ref.setCurrent(React.intToJS(42))
+
+// ReactContext: use typed create/provide/use
+ReactContext.create("light"); // instead of ReactContext.create(React.stringToJS("light"))
+ctx.useString();              // instead of React.jsToString(Hooks.useContext(ctx.jsContext()))
+ctx.provide("dark", child);   // instead of ctx.provide(React.stringToJS("dark"), child)
+```
+
+In Kotlin, use `refInt()`/`refString()` instead of `ref()`, and typed state delegates instead of `state(null as JSObject?)`.
+
+## 19. Forgetting to Wrap Component for Rendering
 
 **Symptom:** Passing a raw render function to `ReactDOM.createRoot().render()` produces an error or blank page.
 
