@@ -19,7 +19,7 @@ import org.teavm.jso.JSObject;
  *       protected ReactElement render() {
  *           return Html.div(
  *               Html.h2("Count: " + count.getInt()),
- *               Html.button("Increment").onClick(e -&gt; count.updateInt(c -&gt; c + 1)).build()
+ *               Html.button("Increment").onClick(e -> count.updateInt(c -> c + 1)).build()
  *           );
  *       }
  *   }
