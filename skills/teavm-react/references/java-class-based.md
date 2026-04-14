@@ -7,7 +7,6 @@ import ca.weblite.teavmreact.component.ReactView;
 import ca.weblite.teavmreact.hooks.*;
 import ca.weblite.teavmreact.core.*;
 import static ca.weblite.teavmreact.html.Html.*;
-import org.teavm.jso.JSObject;
 ```
 
 ## Core Pattern
@@ -231,7 +230,6 @@ import ca.weblite.teavmreact.component.ReactView;
 import ca.weblite.teavmreact.core.*;
 import ca.weblite.teavmreact.hooks.*;
 import static ca.weblite.teavmreact.html.Html.*;
-import org.teavm.jso.JSObject;
 import org.teavm.jso.dom.html.HTMLDocument;
 
 public class StopwatchApp {

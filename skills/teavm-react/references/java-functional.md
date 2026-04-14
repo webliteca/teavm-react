@@ -6,7 +6,8 @@ Read this when building teavm-react components using static imports from `Html` 
 import static ca.weblite.teavmreact.html.Html.*;
 import ca.weblite.teavmreact.core.*;
 import ca.weblite.teavmreact.hooks.*;
-import org.teavm.jso.JSObject;
+import ca.weblite.teavmreact.html.Style;
+import org.teavm.jso.JSObject;      // needed for wrapComponent return type and RenderFunction
 ```
 
 ## Defining Components
@@ -99,7 +100,7 @@ textarea()
 img().src("/logo.png").alt("Logo").build()
 ```
 
-**ElementBuilder chaining methods:** `.className()`, `.id()`, `.key(String)`, `.key(int)`, `.onClick()`, `.onChange()`, `.onKeyDown()`, `.onKeyUp()`, `.onFocus()`, `.onBlur()`, `.onSubmit()`, `.onMouseDown()`, `.onMouseUp()`, `.onMouseEnter()`, `.onMouseLeave()`, `.value()`, `.placeholder()`, `.disabled()`, `.checked()`, `.readOnly()`, `.href()`, `.src()`, `.alt()`, `.target()`, `.type()`, `.name()`, `.htmlFor()`, `.tabIndex()`, `.rows()`, `.cols()`, `.maxLength()`, `.minLength()`, `.style(JSObject)`, `.prop(name, value)`.
+**ElementBuilder chaining methods:** `.className()`, `.id()`, `.key(String)`, `.key(int)`, `.onClick()`, `.onChange()`, `.onKeyDown()`, `.onKeyUp()`, `.onFocus()`, `.onBlur()`, `.onSubmit()`, `.onMouseDown()`, `.onMouseUp()`, `.onMouseEnter()`, `.onMouseLeave()`, `.value()`, `.placeholder()`, `.disabled()`, `.checked()`, `.readOnly()`, `.href()`, `.src()`, `.alt()`, `.target()`, `.type()`, `.name()`, `.htmlFor()`, `.tabIndex()`, `.rows()`, `.cols()`, `.maxLength()`, `.minLength()`, `.style(Style)`, `.prop(name, value)`.
 
 `.build()` returns `ReactElement`. `.build(ReactElement... children)` adds children.
 
@@ -112,7 +113,6 @@ var count = Hooks.useState(0);         // StateHandle<Integer>
 var name  = Hooks.useState("");        // StateHandle<String>
 var on    = Hooks.useState(false);     // StateHandle<Boolean>
 var price = Hooks.useState(9.99);      // StateHandle<Double>
-var obj   = Hooks.useState(jsObject);  // StateHandle<JSObject>
 ```
 
 ### Reading State
@@ -122,7 +122,6 @@ count.getInt()       // int
 name.getString()     // String
 on.getBool()         // boolean
 price.getDouble()    // double
-obj.get()            // raw JSObject
 ```
 
 ### Setting State
@@ -179,20 +178,16 @@ Hooks.useEffect(() -> {
 ## Refs
 
 ```java
-RefHandle ref = Hooks.useRef(null);          // JSObject ref
 RefHandle intRef = Hooks.useRefInt(0);       // int ref
 RefHandle strRef = Hooks.useRefString("");   // String ref
 
 // Read
-ref.getCurrent();           // JSObject
-intRef.getCurrentInt();     // int
-strRef.getCurrentString();  // String
+intRef.getCurrentInt();         // int
+strRef.getCurrentString();      // String
 
 // Write
-ref.setCurrent(someJsObj);
-
-// Pass to DOM element via props
-input("text").prop("ref", ref.raw()).build()
+intRef.setCurrentInt(42);
+strRef.setCurrentString("hello");
 ```
 
 ## Event Handling
@@ -201,7 +196,7 @@ input("text").prop("ref", ref.raw()).build()
 
 ```java
 button("Click").onClick(e -> {
-    // e is JSObject (the raw React SyntheticEvent)
+    // e is SyntheticEvent with getTarget(), preventDefault(), stopPropagation()
 }).build()
 ```
 
@@ -309,13 +304,13 @@ fragment(
 
 ## Inline Styles
 
-Build a style object manually:
+Use the `Style` fluent builder:
 
 ```java
-JSObject style = React.createObject();
-React.setProperty(style, "backgroundColor", "#282c34");
-React.setProperty(style, "color", "white");
-React.setProperty(style, "padding", "20px");
+Style style = Style.create()
+    .backgroundColor("#282c34")
+    .color("white")
+    .padding("20px");
 
 // Pass to an ElementBuilder
 button("Styled").style(style).build()
@@ -325,17 +320,16 @@ button("Styled").style(style).build()
 
 ```java
 // Create (typically as a static field)
-static final ReactContext THEME = ReactContext.create(React.stringToJS("light"));
+static final ReactContext THEME = ReactContext.create("light");
 
 // Provide a value to children
-THEME.provide(React.stringToJS(currentTheme),
+THEME.provide(currentTheme,
     component(ChildA),
     component(ChildB)
 );
 
 // Consume in a child component
-JSObject themeVal = Hooks.useContext(THEME.jsContext());
-String theme = React.jsToString(themeVal);
+String theme = THEME.useString();
 ```
 
 ## Memoization

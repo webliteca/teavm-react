@@ -91,8 +91,7 @@ public class App {
     public static void main(String[] args) {
         var root = ReactDOM.createRoot(
             HTMLDocument.current().getElementById("root"));
-        JSObject app = React.wrapComponent(App::render, "App");
-        root.render(React.createElement(app, null));
+        root.render(component(App::render, "App"));
     }
 
     static ReactElement render(JSObject props) {
@@ -238,7 +237,7 @@ Marks a functional interface so TeaVM passes its implementation as a raw JavaScr
 ----
 @JSFunctor
 public interface EventHandler extends JSObject {
-    void handleEvent(JSObject event);
+    void handleEvent(SyntheticEvent event);
 }
 ----
 
@@ -248,9 +247,8 @@ Maps Java interface getter methods to JavaScript property access.
 
 [source,java]
 ----
-public interface ChangeEvent extends JSObject {
-    @JSProperty
-    InputTarget getTarget();
+public interface ChangeEvent extends SyntheticEvent {
+    // Inherits getTarget() from SyntheticEvent → returns EventTarget
 }
 ----
 
@@ -331,7 +329,7 @@ static ReactElement counter(JSObject props) {
 * `getString()`, `setString(String)`, `updateString(StringUpdater)`
 * `getBool()`, `setBool(boolean)`
 * `getDouble()`, `setDouble(double)`
-* `get()`, `set(T)` for raw `JSObject` values
+* `getDouble()`, `setDouble(double)`
 
 === Using Effects
 
@@ -483,12 +481,12 @@ All builders inherit from `DomBuilder`:
 * `.text(String)` -- set text content
 * `.child(ReactElement)` / `.child(DomBuilder)` / `.child(ElementBuilder)` -- add children
 * `.className(String)` / `.id(String)` / `.key(String|int)`
-* `.style(JSObject)` -- inline styles
+* `.style(Style)` -- inline styles (see `Style.create()`)
 * `.onClick(EventHandler)` / `.onChange(ChangeEventHandler)` / `.onKeyDown(KeyboardEventHandler)`
 * `.onFocus(FocusEventHandler)` / `.onBlur(FocusEventHandler)` / `.onSubmit(SubmitEventHandler)`
 * `.value(String)` / `.placeholder(String)` / `.disabled(boolean)` / `.type(String)`
 * `.href(String)` / `.src(String)` / `.alt(String)`
-* `.prop(String, String|JSObject)` -- arbitrary property
+* `.prop(String, String|int|boolean|double)` -- arbitrary property
 * `.forEach(List, mapper)` / `.forEachElement(List, mapper)` -- list iteration
 * `.build()` -- finalize the element
 
@@ -558,10 +556,6 @@ public class CounterView extends ReactView {
 ----
 // As a ReactElement (most common)
 ReactView.view(CounterView::new, "CounterView")
-
-// Get the JSObject component for reuse
-JSObject comp = ReactView.toComponent(CounterView::new, "CounterView");
-Html.component(comp);
 ----
 
 === Lifecycle Methods
@@ -660,7 +654,6 @@ var count by state(0)           // IntStateDelegate
 var name by state("Alice")      // StringStateDelegate
 var active by state(true)       // BooleanStateDelegate
 var price by state(9.99)        // DoubleStateDelegate
-var obj by state(null as JSObject?)  // JsObjectStateDelegate
 var items by stateList("a", "b")    // StringListStateDelegate
 ----
 
@@ -712,7 +705,7 @@ div {
 ----
 +"Hello"              // add text node (String.unaryPlus)
 +someElement          // add child ReactElement
-+SomeComponent        // render a JSObject component as child
++SomeComponent        // render a wrapped component as child
 +listOfElements       // splice a List<ReactElement>
 ----
 
@@ -822,7 +815,6 @@ div {
 
 [source,kotlin]
 ----
-var myRef by ref()              // JSObject ref (RefDelegate)
 var renderCount by refInt(0)    // Int ref (IntRefDelegate)
 var label by refString("")      // String ref (StringRefDelegate)
 ----
@@ -942,7 +934,7 @@ val App = fc("App") {
 }
 ----
 
-Factory functions: `createStringContext()`, `createIntContext()`, `createBoolContext()`, `createContext()` (for `JSObject?`).
+Factory functions: `createStringContext()`, `createIntContext()`, `createBoolContext()`.
 
 === Props Access
 
@@ -1089,10 +1081,10 @@ These return an `ElementBuilder` for fluent prop chaining. Call `.build()` to fi
 |`.tabIndex(int)`
 |Tab order
 
-|`.style(JSObject)`
-|Inline styles
+|`.style(Style)`
+|Inline styles (see `Style.create()`)
 
-|`.prop(String, String\|int\|boolean\|JSObject)`
+|`.prop(String, String\|int\|boolean\|double)`
 |Arbitrary property
 
 |`.build()` / `.build(ReactElement...)`
@@ -1102,8 +1094,9 @@ These return an `ElementBuilder` for fluent prop chaining. Call `.build()` to fi
 === Utility Methods
 
 * `Html.text(String)` -- create a plain text node
-* `Html.component(JSObject)` -- render a component with no props
-* `Html.component(JSObject, JSObject)` -- render a component with props
+* `Html.component(RenderFunction)` -- render an inline component with no props
+* `Html.component(RenderFunction, String)` -- render with display name
+* `Html.component(JSObject)` -- render a pre-wrapped component with no props
 * `Html.fragment(ReactElement...)` -- wrap in `React.Fragment`
 * `Html.mapToElements(List<T>, Function<T, ReactElement>)` -- map a list to elements
 
@@ -1129,9 +1122,6 @@ All hooks are static methods on `ca.weblite.teavmreact.hooks.Hooks`. They *must*
 
 |`useState(double initial)`
 |`StateHandle<Double>`
-
-|`useState(JSObject initial)`
-|`StateHandle<JSObject>`
 |===
 
 ==== `StateHandle<T>` API
@@ -1142,11 +1132,10 @@ All hooks are static methods on `ca.weblite.teavmreact.hooks.Hooks`. They *must*
 * `getString()` -- current value as `String`
 * `getBool()` -- current value as `boolean`
 * `getDouble()` -- current value as `double`
-* `get()` -- raw value as `T`
 
 *Setters:*
 
-* `setInt(int)`, `setString(String)`, `setBool(boolean)`, `setDouble(double)`, `set(T)`
+* `setInt(int)`, `setString(String)`, `setBool(boolean)`, `setDouble(double)`
 
 *Functional updates:*
 
@@ -1208,11 +1197,10 @@ Hooks.useEffect(() -> {
 
 ==== `RefHandle` API
 
-* `raw()` -- underlying JS ref object (pass to element's `ref` prop)
-* `getCurrent()` -- current value as `JSObject`
-* `setCurrent(JSObject)` -- set current value
-* `getCurrentString()` -- current value as `String`
-* `getCurrentInt()` -- current value as `int`
+* `getCurrentString()` / `setCurrentString(String)` -- String ref value
+* `getCurrentInt()` / `setCurrentInt(int)` -- int ref value
+* `getCurrentBool()` / `setCurrentBool(boolean)` -- boolean ref value
+* `getCurrentDouble()` / `setCurrentDouble(double)` -- double ref value
 
 === `useMemo`
 
@@ -1253,12 +1241,16 @@ The reducer is a JS function `(state, action) => newState`.
 
 === `useContext`
 
+Use the typed methods on `ReactContext` directly:
+
 [source,java]
 ----
-JSObject value = Hooks.useContext(context.jsContext());
+String theme = themeCtx.useString();
+int count = countCtx.useInt();
+boolean auth = authCtx.useBool();
 ----
 
-Reads the current value from a React context object. See <<context-api>> for details.
+See <<context-api>> for details.
 
 === `deps()` Helper
 
@@ -1280,7 +1272,7 @@ All event handler interfaces are in `ca.weblite.teavmreact.events` and are annot
 |Interface |Method |Used For
 
 |`EventHandler`
-|`handleEvent(JSObject event)`
+|`handleEvent(SyntheticEvent event)`
 |`onClick`, `onMouseDown`, `onMouseUp`, `onMouseEnter`, `onMouseLeave`
 
 |`ChangeEventHandler`
@@ -1292,26 +1284,23 @@ All event handler interfaces are in `ca.weblite.teavmreact.events` and are annot
 |`onKeyDown`, `onKeyUp`
 
 |`FocusEventHandler`
-|`handleEvent(JSObject event)`
+|`handleEvent(FocusEvent event)`
 |`onFocus`, `onBlur`
 
 |`SubmitEventHandler`
-|`handleEvent(JSObject event)`
+|`handleEvent(SubmitEvent event)`
 |`onSubmit`
 |===
 
 === `ChangeEvent`
 
+`ChangeEvent` extends `SyntheticEvent`. Access the input's value via the inherited `getTarget()` method, which returns an `EventTarget`:
+
 [source,java]
 ----
-public interface ChangeEvent extends JSObject {
-    @JSProperty InputTarget getTarget();
-
-    interface InputTarget extends JSObject {
-        @JSProperty String getValue();
-        @JSProperty boolean getChecked();
-        @JSProperty String getType();
-    }
+public interface ChangeEvent extends SyntheticEvent {
+    // Inherits getTarget() → EventTarget with:
+    //   getValue(), getChecked(), getType(), getId(), getTagName(), getClassName()
 }
 ----
 
@@ -1333,7 +1322,7 @@ input("checkbox")
 
 [source,java]
 ----
-public interface KeyboardEvent extends JSObject {
+public interface KeyboardEvent extends SyntheticEvent {
     @JSProperty String getKey();       // "Enter", "Escape", "a", etc.
     @JSProperty String getCode();      // "KeyA", "Enter", etc.
     @JSProperty boolean getAltKey();
@@ -1341,7 +1330,7 @@ public interface KeyboardEvent extends JSObject {
     @JSProperty boolean getMetaKey();
     @JSProperty boolean getShiftKey();
     @JSProperty boolean getRepeat();
-    @JSProperty JSObject getTarget();
+    // getTarget() inherited from SyntheticEvent
 }
 ----
 
@@ -1349,7 +1338,7 @@ public interface KeyboardEvent extends JSObject {
 
 [source,java]
 ----
-public interface MouseEvent extends JSObject {
+public interface MouseEvent extends SyntheticEvent {
     @JSProperty double getClientX();
     @JSProperty double getClientY();
     @JSProperty double getPageX();
@@ -1359,7 +1348,7 @@ public interface MouseEvent extends JSObject {
     @JSProperty boolean getCtrlKey();
     @JSProperty boolean getMetaKey();
     @JSProperty boolean getShiftKey();
-    @JSProperty JSObject getTarget();
+    // getTarget() inherited from SyntheticEvent
 }
 ----
 
@@ -1373,20 +1362,18 @@ React Context allows passing data through the component tree without prop drilli
 
 [source,java]
 ----
-// Create a context with a default value
-static final ReactContext THEME_CTX =
-    ReactContext.create(React.stringToJS("light"));
+// Create a context with a typed default value
+static final ReactContext THEME_CTX = ReactContext.create("light");
 
 // Provide a value to descendants
-THEME_CTX.provide(React.stringToJS("dark"),
+THEME_CTX.provide("dark",
     childElement1,
     childElement2
 );
 
 // Consume in a component
 static ReactElement themeConsumer(JSObject props) {
-    JSObject themeValue = Hooks.useContext(THEME_CTX.jsContext());
-    String theme = React.jsToString(themeValue);
+    String theme = THEME_CTX.useString();
     return Html.p("Current theme: " + theme);
 }
 ----
@@ -1394,10 +1381,13 @@ static ReactElement themeConsumer(JSObject props) {
 ==== `ReactContext` API
 
 * `ReactContext.create()` -- create with no default value
-* `ReactContext.create(JSObject defaultValue)` -- create with default
-* `.jsContext()` -- get the underlying JS context object
-* `.provider()` -- get the Provider component
-* `.provide(JSObject value, ReactElement... children)` -- convenience wrapper
+* `ReactContext.create(String defaultValue)` -- create with String default
+* `ReactContext.create(int defaultValue)` -- create with int default
+* `ReactContext.create(boolean defaultValue)` -- create with boolean default
+* `.useString()` / `.useInt()` / `.useBool()` -- consume the context value (typed)
+* `.provide(String value, ReactElement... children)` -- wrap children with String provider
+* `.provide(int value, ReactElement... children)` -- wrap children with int provider
+* `.provide(boolean value, ReactElement... children)` -- wrap children with boolean provider
 
 === Kotlin Typed Context
 
