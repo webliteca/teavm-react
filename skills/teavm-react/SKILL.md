@@ -133,7 +133,7 @@ Entry point is `main([])`, not `ReactDOM.render()` from JS. See `references/buil
 
 ### 6. TeaVM has a limited stdlib
 
-No reflection, no `java.nio` channels, no `java.net`, limited concurrency. Do **not** suggest Jackson, OkHttp, Retrofit, Gson, or any reflection-based library — they won't compile under TeaVM. Use TeaVM JSO (`@JSBody`) for browser APIs like `fetch`, `XMLHttpRequest`, `localStorage`.
+No reflection, no `java.nio` channels, no `java.net`, limited concurrency. Do **not** suggest Jackson, OkHttp, Retrofit, Gson, or any reflection-based library — they won't compile under TeaVM. Use TeaVM JSO (`@JSBody`) for browser APIs like `fetch`, `XMLHttpRequest`, `localStorage`. See `references/teavm-core-essentials.md` for the full support matrix.
 
 ### 7. Functional state updates avoid stale closures
 
@@ -166,6 +166,7 @@ Load these on demand for deeper guidance:
 | `references/styling.md` | Inline styles, StyleBuilder (Kotlin), css() shorthand |
 | `references/coroutines-and-flow.md` | effect(), launchedEffect(), collectAsState(), produceState() |
 | `references/teavm-interop.md` | @JSBody, @JSFunctor, @JSProperty, calling browser APIs |
+| `references/teavm-core-essentials.md` | Java stdlib support matrix, JSO types, Maven plugin config, "compiles but fails" patterns |
 | `references/build-and-deploy.md` | Maven commands, dev.sh, run.sh, HTML shell, production builds |
 | `references/pom-templates.md` | Copy-pasteable pom.xml for Java-only, Java+Kotlin, and production |
 | `references/gotchas.md` | Full list of gotchas and troubleshooting |
