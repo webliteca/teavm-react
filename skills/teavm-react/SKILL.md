@@ -150,47 +150,21 @@ State must come from hooks (field initializers calling `Hooks.useState(...)`), n
 
 ## Fetching Data
 
-TeaVM has no `java.net` — you cannot use OkHttp, Retrofit, or `HttpURLConnection`. Use the browser's `fetch()` API via `@JSBody`.
+TeaVM has no `java.net` — you cannot use OkHttp, Retrofit, or `HttpURLConnection`. The library provides a built-in `Fetch` class that wraps the browser's `fetch()` API with a clean Java interface (no `JSObject` in the public API).
 
-### Java — Minimal HTTP GET
-
-```java
-import org.teavm.jso.JSBody;
-import org.teavm.jso.JSObject;
-import org.teavm.jso.JSFunctor;
-
-@JSFunctor
-public interface TextCallback extends JSObject {
-    void onText(String text);
-}
-
-@JSFunctor
-public interface ErrorCallback extends JSObject {
-    void onError(JSObject error);
-}
-
-@JSBody(params = {"url", "onSuccess", "onError"}, script =
-    "fetch(url)" +
-    ".then(function(r) { return r.text(); })" +
-    ".then(function(text) { onSuccess(text); })" +
-    ".catch(function(err) { onError(err); });")
-public static native void fetchText(
-    String url, TextCallback onSuccess, ErrorCallback onError);
-```
-
-Use it in a component with `useEffect`:
+### Java — Using Fetch
 
 ```java
+import ca.weblite.teavmreact.core.Fetch;
+
 static ReactElement dataLoader(JSObject props) {
     StateHandle<String> data = Hooks.useState("Loading...");
     StateHandle<String> error = Hooks.useState("");
 
     Hooks.useEffect(() -> {
-        fetchText(
-            "https://api.example.com/data",
-            text -> data.setString(text),
-            err -> error.setString("Failed to load")
-        );
+        Fetch.get("https://api.example.com/items",
+            (body, status) -> data.setString(body),
+            msg -> error.setString(msg));
         return null;
     }, Hooks.deps());  // empty deps = run once on mount
 
@@ -201,34 +175,55 @@ static ReactElement dataLoader(JSObject props) {
 }
 ```
 
-**Key rules:** Use ES5 `function()` syntax (no arrow functions), and mark callback interfaces with `@JSFunctor`. See `references/teavm-interop.md` for the full pattern including POST requests and JSON handling.
+POST, PUT, PATCH, and DELETE are also available:
 
-### Kotlin — launchedEffect with Suspend Functions
+```java
+Fetch.post("https://api.example.com/items",
+    "{\"name\":\"New Item\"}", "application/json",
+    (body, status) -> { /* handle response */ },
+    msg -> { /* handle error */ });
 
-In Kotlin, wrap `@JSBody` fetch calls in a suspend-friendly helper using `suspendCoroutine`, then call from `launchedEffect`:
+Fetch.delete("https://api.example.com/items/1",
+    (body, status) -> { /* handle response */ },
+    msg -> { /* handle error */ });
+```
+
+The callback receives both the response body (`String`) and the HTTP status code (`int`). The error callback is invoked only on network-level failures (DNS, CORS, connection refused) — HTTP error statuses like 404 or 500 still arrive through the success callback so you can inspect the status code.
+
+### Kotlin — Suspend Functions
+
+The Kotlin module provides suspend wrappers that return a `FetchResponse`:
 
 ```kotlin
-val UserProfile = fc("UserProfile") {
-    var data by state("Loading...")
+import ca.weblite.teavmreact.kotlin.*
+
+val ItemList = fc("ItemList") {
+    var items by state("Loading...")
     var error by state("")
 
     launchedEffect {
         try {
-            val result = fetchData("https://api.example.com/data")  // suspend
-            data = result
-        } catch (e: Exception) {
-            error = e.message ?: "Failed to load"
+            val response = fetchText("https://api.example.com/items")
+            if (response.ok) {           // status in 200..299
+                items = response.body
+            } else {
+                error = "HTTP ${response.status}"
+            }
+        } catch (e: FetchException) {
+            error = e.message ?: "Network error"
         }
     }
 
     div {
         show(error.isNotEmpty()) { p { +"Error: $error" } }
-        show(error.isEmpty()) { pre { +data } }
+        show(error.isEmpty()) { pre { +items } }
     }
 }
 ```
 
-See `references/coroutines-and-flow.md` for `launchedEffect`, polling patterns, and `Flow.collectAsState()`.
+Available suspend functions: `fetchText()`, `postText()`, `putText()`, `patchText()`, `deleteText()`, and `fetchRequest()` for arbitrary methods. POST/PUT/PATCH default to `application/json` content type.
+
+See `references/teavm-interop.md` for writing custom `@JSBody` wrappers when you need lower-level control (custom headers, streaming, etc.).
 
 ## Reference Files
 

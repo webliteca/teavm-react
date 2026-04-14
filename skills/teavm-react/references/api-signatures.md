@@ -63,6 +63,30 @@
 -     public static native int jsToInt(JSObject obj)
 -     public static native boolean jsToBool(JSObject obj)
 
+### Fetch
+
+    public final class Fetch {
+
+-     public static void get(String url, Callback onSuccess, ErrorCallback onError)
+-     public static void post(String url, String body, String contentType, Callback onSuccess, ErrorCallback onError)
+-     public static void put(String url, String body, String contentType, Callback onSuccess, ErrorCallback onError)
+-     public static void patch(String url, String body, String contentType, Callback onSuccess, ErrorCallback onError)
+-     public static void delete(String url, Callback onSuccess, ErrorCallback onError)
+-     public static void request(String method, String url, Callback onSuccess, ErrorCallback onError)
+-     public static void request(String method, String url, String body, String contentType, Callback onSuccess, ErrorCallback onError)
+
+    // Inner callback interfaces (plain Java, no JSObject)
+
+    @FunctionalInterface
+    public interface Callback {
+-       void onResponse(String body, int status)
+    }
+
+    @FunctionalInterface
+    public interface ErrorCallback {
+-       void onError(String message)
+    }
+
 ### ReactContext
 
     public class ReactContext {
@@ -671,6 +695,17 @@
 - fun a(block: HtmlBuilder.() -> Unit): ReactElement = HtmlBuilder.buildElement("a", block)
 - fun img(block: HtmlBuilder.() -> Unit): ReactElement = HtmlBuilder.buildElement("img", block)
 - fun fragment(block: HtmlBuilder.() -> Unit): ReactElement {
+
+### FetchExtensions
+
+- data class FetchResponse(val body: String, val status: Int) { val ok: Boolean }
+- class FetchException(message: String) : Exception(message)
+- suspend fun fetchText(url: String): FetchResponse
+- suspend fun postText(url: String, body: String, contentType: String = "application/json"): FetchResponse
+- suspend fun putText(url: String, body: String, contentType: String = "application/json"): FetchResponse
+- suspend fun patchText(url: String, body: String, contentType: String = "application/json"): FetchResponse
+- suspend fun deleteText(url: String): FetchResponse
+- suspend fun fetchRequest(method: String, url: String, body: String? = null, contentType: String? = null): FetchResponse
 
 ### HtmlDsl
 
