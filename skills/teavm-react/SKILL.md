@@ -148,6 +148,88 @@ In Kotlin DSL, direct assignment (`count++`) works because the delegate calls `s
 
 State must come from hooks (field initializers calling `Hooks.useState(...)`), never from plain mutable fields. Plain fields reset on every render because the class is reconstructed.
 
+## Fetching Data
+
+TeaVM has no `java.net` — you cannot use OkHttp, Retrofit, or `HttpURLConnection`. Use the browser's `fetch()` API via `@JSBody`.
+
+### Java — Minimal HTTP GET
+
+```java
+import org.teavm.jso.JSBody;
+import org.teavm.jso.JSObject;
+import org.teavm.jso.JSFunctor;
+
+@JSFunctor
+public interface TextCallback extends JSObject {
+    void onText(String text);
+}
+
+@JSFunctor
+public interface ErrorCallback extends JSObject {
+    void onError(JSObject error);
+}
+
+@JSBody(params = {"url", "onSuccess", "onError"}, script =
+    "fetch(url)" +
+    ".then(function(r) { return r.text(); })" +
+    ".then(function(text) { onSuccess(text); })" +
+    ".catch(function(err) { onError(err); });")
+public static native void fetchText(
+    String url, TextCallback onSuccess, ErrorCallback onError);
+```
+
+Use it in a component with `useEffect`:
+
+```java
+static ReactElement dataLoader(JSObject props) {
+    StateHandle<String> data = Hooks.useState("Loading...");
+    StateHandle<String> error = Hooks.useState("");
+
+    Hooks.useEffect(() -> {
+        fetchText(
+            "https://api.example.com/data",
+            text -> data.setString(text),
+            err -> error.setString("Failed to load")
+        );
+        return null;
+    }, Hooks.deps());  // empty deps = run once on mount
+
+    if (!error.getString().isEmpty()) {
+        return p("Error: " + error.getString());
+    }
+    return pre(data.getString());
+}
+```
+
+**Key rules:** Use ES5 `function()` syntax (no arrow functions), and mark callback interfaces with `@JSFunctor`. See `references/teavm-interop.md` for the full pattern including POST requests and JSON handling.
+
+### Kotlin — launchedEffect with Suspend Functions
+
+In Kotlin, wrap `@JSBody` fetch calls in a suspend-friendly helper using `suspendCoroutine`, then call from `launchedEffect`:
+
+```kotlin
+val UserProfile = fc("UserProfile") {
+    var data by state("Loading...")
+    var error by state("")
+
+    launchedEffect {
+        try {
+            val result = fetchData("https://api.example.com/data")  // suspend
+            data = result
+        } catch (e: Exception) {
+            error = e.message ?: "Failed to load"
+        }
+    }
+
+    div {
+        show(error.isNotEmpty()) { p { +"Error: $error" } }
+        show(error.isEmpty()) { pre { +data } }
+    }
+}
+```
+
+See `references/coroutines-and-flow.md` for `launchedEffect`, polling patterns, and `Flow.collectAsState()`.
+
 ## Reference Files
 
 Load these on demand for deeper guidance:
