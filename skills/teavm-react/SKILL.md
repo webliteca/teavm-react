@@ -198,7 +198,8 @@ import ca.weblite.teavmreact.core.ReactDOM;
 import ca.weblite.teavmreact.core.ReactElement;
 import ca.weblite.teavmreact.hooks.Hooks;
 import ca.weblite.teavmreact.hooks.StateHandle;
-import org.teavm.jso.JSObject;
+import ca.weblite.teavmreact.html.Style;
+import org.teavm.jso.JSObject;                           // for wrapComponent return type
 import org.teavm.jso.dom.html.HTMLDocument;
 import static ca.weblite.teavmreact.html.Html.*;      // functional DSL
 import ca.weblite.teavmreact.html.DomBuilder.*;        // builder DSL

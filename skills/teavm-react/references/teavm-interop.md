@@ -101,11 +101,13 @@ public static native String syncGet(String url);
 Omit `return` for void methods:
 
 ```java
+// Note: preventDefault() and stopPropagation() are now available directly
+// on SyntheticEvent, so you rarely need @JSBody for these:
+//   e.preventDefault();
+//   e.stopPropagation();
+// But the pattern works for any void JS operation:
 @JSBody(params = {"event"}, script = "event.preventDefault();")
 public static native void preventDefault(JSObject event);
-
-@JSBody(params = {"event"}, script = "event.stopPropagation();")
-public static native void stopPropagation(JSObject event);
 ```
 
 ## @JSFunctor -- Passing Java Lambdas as JS Functions
@@ -117,7 +119,7 @@ public static native void stopPropagation(JSObject event);
 ```java
 @JSFunctor
 public interface EventHandler extends JSObject {
-    void handleEvent(JSObject event);
+    void handleEvent(SyntheticEvent event);
 }
 ```
 
@@ -140,11 +142,11 @@ React.setProperty(props, "onClick", (EventHandler) e -> doSomething());
 
 | Interface | Method | Used By |
 |-----------|--------|---------|
-| `EventHandler` | `handleEvent(JSObject)` | onClick, onMouseDown/Up/Enter/Leave |
+| `EventHandler` | `handleEvent(SyntheticEvent)` | onClick, onMouseDown/Up/Enter/Leave |
 | `ChangeEventHandler` | `handleEvent(ChangeEvent)` | onChange |
 | `KeyboardEventHandler` | `handleEvent(KeyboardEvent)` | onKeyDown, onKeyUp |
-| `FocusEventHandler` | `handleEvent(JSObject)` | onFocus, onBlur |
-| `SubmitEventHandler` | `handleEvent(JSObject)` | onSubmit |
+| `FocusEventHandler` | `handleEvent(FocusEvent)` | onFocus, onBlur |
+| `SubmitEventHandler` | `handleEvent(SubmitEvent)` | onSubmit |
 | `EffectCallback` | `run()` | useEffect |
 | `VoidCallback` | (no explicit method) | cleanup functions, setInterval/setTimeout |
 | `MemoFactory` | `create()` | useMemo |
@@ -171,10 +173,10 @@ callWithString(value -> JsUtil.consoleLog("Received: " + value));
 `@JSProperty` maps getter/setter methods on a `JSObject` interface to JavaScript property access. Used for typed event objects.
 
 ```java
-public interface KeyboardEvent extends JSObject {
-    @JSProperty String getKey();     // reads event.key
-    @JSProperty boolean getCtrlKey(); // reads event.ctrlKey
-    @JSProperty JSObject getTarget(); // reads event.target
+public interface KeyboardEvent extends SyntheticEvent {
+    @JSProperty String getKey();       // reads event.key
+    @JSProperty boolean getCtrlKey();  // reads event.ctrlKey
+    // getTarget() inherited from SyntheticEvent → returns EventTarget
 }
 ```
 

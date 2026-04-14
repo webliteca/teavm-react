@@ -26,25 +26,25 @@ div {
 
 Best for: apps with design systems, CSS frameworks, or shared stylesheets.
 
-## Approach 2: Inline Style Objects (Java)
+## Approach 2: Inline Style Builder (Java)
 
-Create a `JSObject` via `React.createObject()`, set properties with `React.setProperty()`, then pass to the `style` setter.
+Use the `Style` fluent builder to create type-safe inline styles:
 
 ```java
-JSObject style = React.createObject();
-React.setProperty(style, "backgroundColor", "#282c34");
-React.setProperty(style, "color", "white");
-React.setProperty(style, "padding", "20px");
-React.setProperty(style, "borderRadius", "8px");
+Style style = Style.create()
+    .backgroundColor("#282c34")
+    .color("white")
+    .padding("20px")
+    .borderRadius("8px");
 
 // Functional DSL
-div(h2("Styled")).onClick(e -> {}).style(style).build();
+button("Styled").style(style).build();
 
 // Builder DSL
 Div.create().style(style).child(H2.create().text("Styled").build()).build();
 ```
 
-Property names use **camelCase** (matching React's convention): `backgroundColor`, `fontSize`, `borderRadius`.
+Property names use **camelCase** (matching React's convention): `backgroundColor`, `fontSize`, `borderRadius`. The `Style` class provides fluent methods for all common CSS properties.
 
 Best for: Java projects needing dynamic styles without Kotlin.
 
@@ -124,9 +124,9 @@ Best for: quick prototyping or porting CSS snippets.
 ### Java
 
 ```java
-JSObject style = React.createObject();
-React.setProperty(style, "color", isError ? "red" : "green");
-React.setProperty(style, "fontWeight", isError ? "bold" : "normal");
+Style style = Style.create()
+    .color(isError ? "red" : "green")
+    .fontWeight(isError ? "bold" : "normal");
 ```
 
 ### Kotlin

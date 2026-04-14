@@ -7,7 +7,8 @@ import ca.weblite.teavmreact.html.DomBuilder.*;
 import ca.weblite.teavmreact.html.DomBuilder;
 import ca.weblite.teavmreact.core.*;
 import ca.weblite.teavmreact.hooks.*;
-import org.teavm.jso.JSObject;
+import ca.weblite.teavmreact.html.Style;
+import org.teavm.jso.JSObject;      // needed for wrapComponent return type
 ```
 
 ## Core Pattern
@@ -72,7 +73,7 @@ All builders inherit these from `DomBuilder`:
 - `.className(String)` -- CSS class
 - `.id(String)` -- element ID
 - `.key(String)` / `.key(int)` -- React key
-- `.style(JSObject)` -- inline style object
+- `.style(Style)` -- inline style object (see `Style.create()`)
 
 ### Event Handlers
 - `.onClick(EventHandler)` -- click handler (`e -> { ... }`)
@@ -93,7 +94,7 @@ All builders inherit these from `DomBuilder`:
 
 ### Generic
 - `.prop(String name, String value)` -- arbitrary string prop
-- `.prop(String name, JSObject value)` -- arbitrary JSObject prop
+- `.prop(String name, double value)` -- arbitrary numeric prop
 
 ### Build
 - `.build()` -- finalize and return `ReactElement`
@@ -231,13 +232,13 @@ Table.create()
 
 ## Inline Styles
 
-Build a style JSObject and pass it:
+Use the `Style` fluent builder:
 
 ```java
-JSObject style = React.createObject();
-React.setProperty(style, "backgroundColor", "#f0f0f0");
-React.setProperty(style, "padding", "16px");
-React.setProperty(style, "borderRadius", "8px");
+Style style = Style.create()
+    .backgroundColor("#f0f0f0")
+    .padding("16px")
+    .borderRadius("8px");
 
 Div.create()
     .style(style)
