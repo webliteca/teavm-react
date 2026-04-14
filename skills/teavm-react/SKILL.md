@@ -148,6 +148,83 @@ In Kotlin DSL, direct assignment (`count++`) works because the delegate calls `s
 
 State must come from hooks (field initializers calling `Hooks.useState(...)`), never from plain mutable fields. Plain fields reset on every render because the class is reconstructed.
 
+## Fetching Data
+
+TeaVM has no `java.net` — you cannot use OkHttp, Retrofit, or `HttpURLConnection`. The library provides a built-in `Fetch` class that wraps the browser's `fetch()` API with a clean Java interface (no `JSObject` in the public API).
+
+### Java — Using Fetch
+
+```java
+import ca.weblite.teavmreact.core.Fetch;
+
+static ReactElement dataLoader(JSObject props) {
+    StateHandle<String> data = Hooks.useState("Loading...");
+    StateHandle<String> error = Hooks.useState("");
+
+    Hooks.useEffect(() -> {
+        Fetch.get("https://api.example.com/items",
+            (body, status) -> data.setString(body),
+            msg -> error.setString(msg));
+        return null;
+    }, Hooks.deps());  // empty deps = run once on mount
+
+    if (!error.getString().isEmpty()) {
+        return p("Error: " + error.getString());
+    }
+    return pre(data.getString());
+}
+```
+
+POST, PUT, PATCH, and DELETE are also available:
+
+```java
+Fetch.post("https://api.example.com/items",
+    "{\"name\":\"New Item\"}", "application/json",
+    (body, status) -> { /* handle response */ },
+    msg -> { /* handle error */ });
+
+Fetch.delete("https://api.example.com/items/1",
+    (body, status) -> { /* handle response */ },
+    msg -> { /* handle error */ });
+```
+
+The callback receives both the response body (`String`) and the HTTP status code (`int`). The error callback is invoked only on network-level failures (DNS, CORS, connection refused) — HTTP error statuses like 404 or 500 still arrive through the success callback so you can inspect the status code.
+
+### Kotlin — Suspend Functions
+
+The Kotlin module provides suspend wrappers that return a `FetchResponse`:
+
+```kotlin
+import ca.weblite.teavmreact.kotlin.*
+
+val ItemList = fc("ItemList") {
+    var items by state("Loading...")
+    var error by state("")
+
+    launchedEffect {
+        try {
+            val response = fetchText("https://api.example.com/items")
+            if (response.ok) {           // status in 200..299
+                items = response.body
+            } else {
+                error = "HTTP ${response.status}"
+            }
+        } catch (e: FetchException) {
+            error = e.message ?: "Network error"
+        }
+    }
+
+    div {
+        show(error.isNotEmpty()) { p { +"Error: $error" } }
+        show(error.isEmpty()) { pre { +items } }
+    }
+}
+```
+
+Available suspend functions: `fetchText()`, `postText()`, `putText()`, `patchText()`, `deleteText()`, and `fetchRequest()` for arbitrary methods. POST/PUT/PATCH default to `application/json` content type.
+
+See `references/teavm-interop.md` for writing custom `@JSBody` wrappers when you need lower-level control (custom headers, streaming, etc.).
+
 ## Reference Files
 
 Load these on demand for deeper guidance:

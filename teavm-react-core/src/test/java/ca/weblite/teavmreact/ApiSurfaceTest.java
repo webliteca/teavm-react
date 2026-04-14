@@ -341,6 +341,43 @@ public class ApiSurfaceTest {
     }
 
     // ====================================================================
+    // Fetch API
+    // ====================================================================
+
+    @Test
+    void fetchClassExists() {
+        assertNotNull(Fetch.class);
+        assertTrue(Modifier.isFinal(Fetch.class.getModifiers()));
+    }
+
+    @Test
+    void fetchHasHttpMethods() {
+        Set<String> methods = getPublicStaticMethodNames(Fetch.class);
+        assertTrue(methods.contains("get"), "Fetch should have get()");
+        assertTrue(methods.contains("post"), "Fetch should have post()");
+        assertTrue(methods.contains("put"), "Fetch should have put()");
+        assertTrue(methods.contains("patch"), "Fetch should have patch()");
+        assertTrue(methods.contains("delete"), "Fetch should have delete()");
+        assertTrue(methods.contains("request"), "Fetch should have request()");
+    }
+
+    @Test
+    void fetchCallbackInterfacesExist() {
+        assertNotNull(Fetch.Callback.class);
+        assertNotNull(Fetch.ErrorCallback.class);
+        assertTrue(Fetch.Callback.class.isInterface());
+        assertTrue(Fetch.ErrorCallback.class.isInterface());
+    }
+
+    @Test
+    void fetchCallbacksDoNotExtendJSObject() {
+        assertFalse(org.teavm.jso.JSObject.class.isAssignableFrom(Fetch.Callback.class),
+                "Fetch.Callback must not extend JSObject");
+        assertFalse(org.teavm.jso.JSObject.class.isAssignableFrom(Fetch.ErrorCallback.class),
+                "Fetch.ErrorCallback must not extend JSObject");
+    }
+
+    // ====================================================================
     // JsUtil
     // ====================================================================
 

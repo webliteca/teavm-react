@@ -221,6 +221,8 @@ int id = JsUtil.setInterval(tick, 1000);
 
 ## Complete Example: Wrapping Browser fetch()
 
+> **Note:** The library now includes a built-in `Fetch` class (`ca.weblite.teavmreact.core.Fetch`) that wraps `fetch()` with a clean Java API — no `@JSBody` or `@JSFunctor` needed. Use `Fetch.get()`, `Fetch.post()`, etc. directly. The example below is kept for educational purposes, showing how to wrap any browser API yourself.
+
 This pattern is used in the photostream app's `HttpClient` class.
 
 ### Step 1: Define Callback Interfaces
