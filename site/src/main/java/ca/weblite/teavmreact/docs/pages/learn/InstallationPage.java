@@ -21,6 +21,8 @@ public class InstallationPage {
             hr(),
             quickStartSection(),
             hr(),
+            archetypeSection(),
+            hr(),
             h2("Manual Setup"),
             p("If you prefer to set things up yourself, follow the steps below."),
             prerequisitesSection(),
@@ -35,7 +37,9 @@ public class InstallationPage {
             hr(),
             buildingSection(),
             hr(),
-            runningLocallySection()
+            runningLocallySection(),
+            hr(),
+            skillsSection()
         );
     }
 
@@ -54,6 +58,47 @@ public class InstallationPage {
             Callout.note("Prerequisites",
                 p("You will need JDK 21 or later, Maven 3.8+, and a modern web browser. "
                   + "See the Prerequisites section below for details."))
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // 0b. Maven Archetype
+    // -----------------------------------------------------------------------
+
+    private static ReactElement archetypeSection() {
+        String archetypeCommand = """
+                mvn archetype:generate \\
+                  -DarchetypeGroupId=ca.weblite \\
+                  -DarchetypeArtifactId=teavm-react-archetype \\
+                  -DarchetypeVersion=0.1.0-SNAPSHOT \\
+                  -DgroupId=com.example \\
+                  -DartifactId=my-teavm-react-app \\
+                  -DjavaVersion=21 \\
+                  -DinteractiveMode=false""";
+
+        String runCommands = """
+                cd my-teavm-react-app
+                chmod +x run.sh
+                ./run.sh""";
+
+        return El.section("doc-section",
+
+            h2("Maven Archetype"),
+            p("You can also create a new project from the command line using the "
+              + "Maven archetype. This is useful for scripted setups or if you "
+              + "prefer not to use the web generator."),
+            CodeBlock.create(archetypeCommand, "bash"),
+            p("This generates a complete project with the same structure as the "
+              + "web generator above. To build and run it:"),
+            CodeBlock.create(runCommands, "bash"),
+            Callout.note("Customizable Properties",
+                ul(
+                    li("groupId — your project's Maven group ID (e.g. com.example)"),
+                    li("artifactId — the project name and directory (e.g. my-teavm-react-app)"),
+                    li("javaVersion — Java source/target version (default: 21, also supports 17)")
+                )),
+            Callout.note("Interactive Mode",
+                p("Omit -DinteractiveMode=false to be prompted for each property interactively."))
         );
     }
 
@@ -379,6 +424,67 @@ import ca.weblite.teavmreact.docs.El;
                     li("Compiling overlay — shows a visual indicator in the browser "
                       + "while recompiling")
                 ))
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // 8. AI Skills
+    // -----------------------------------------------------------------------
+
+    private static ReactElement skillsSection() {
+        String installCommand = """
+                mvn ca.weblite:skills-jar-plugin:install""";
+
+        String listCommand = """
+                mvn ca.weblite:skills-jar-plugin:list""";
+
+        String pomPlugin = """
+                <build>
+                    <plugins>
+                        <plugin>
+                            <groupId>ca.weblite</groupId>
+                            <artifactId>skills-jar-plugin</artifactId>
+                            <version>0.1.2</version>
+                        </plugin>
+                    </plugins>
+                </build>""";
+
+        return El.section("doc-section",
+
+            h2("AI Skills"),
+            p("teavm-react publishes AI assistant skills that provide your IDE's AI "
+              + "tools (such as Claude Code or Cursor) with library-specific guidance, "
+              + "API signatures, and usage patterns. Skills are distributed as Maven "
+              + "artifacts alongside the library JARs."),
+
+            h3("Installing Skills"),
+            p("Run the following command in your project directory to install skills "
+              + "for all dependencies that publish them:"),
+            CodeBlock.create(installCommand, "bash"),
+            p("This resolves -skills.jar artifacts for each dependency in your project "
+              + "and extracts them into .claude/skills/ in your project root. The "
+              + "installed skills are automatically picked up by Claude Code and other "
+              + "compatible AI tools."),
+
+            h3("Listing Available Skills"),
+            p("To see which of your dependencies provide skills without installing them:"),
+            CodeBlock.create(listCommand, "bash"),
+
+            h3("Adding the Plugin to Your POM"),
+            p("For convenience, you can add the skills-jar-plugin to your pom.xml so "
+              + "that skill installation is available as a standard Maven goal:"),
+            CodeBlock.create(pomPlugin, "xml"),
+
+            Callout.note("What Gets Installed",
+                ul(
+                    li("SKILL.md — the main skill file with API guidance and rules"),
+                    li("references/ — detailed API signatures and usage patterns"),
+                    li("assets/examples/ — complete working examples you can reference")
+                )),
+            Callout.note("Version Tracking",
+                p("The plugin maintains a .skill-manifest.json file to track installed "
+                  + "skills. Re-running the install command only updates skills whose "
+                  + "upstream version has changed."))
         );
     }
 }
