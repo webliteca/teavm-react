@@ -88,6 +88,9 @@ public final class React {
     @JSBody(script = "return {};")
     public static native JSObject createObject();
 
+    @JSBody(params = {"obj", "key"}, script = "return obj[key];")
+    public static native JSObject getProperty(JSObject obj, String key);
+
     @JSBody(params = {"obj", "key", "value"}, script = "obj[key] = value;")
     public static native void setProperty(JSObject obj, String key, JSObject value);
 

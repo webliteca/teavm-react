@@ -49,16 +49,16 @@ class ComponentScope(@PublishedApi internal val props: JSObject) {
     // ====================================================================
 
     /** Read a string prop by name */
-    fun propString(name: String): String = React.jsToString(getProp(props, name))
+    fun propString(name: String): String = React.jsToString(React.getProperty(props, name))
 
     /** Read an int prop by name */
-    fun propInt(name: String): Int = React.jsToInt(getProp(props, name))
+    fun propInt(name: String): Int = React.jsToInt(React.getProperty(props, name))
 
     /** Read a boolean prop by name */
-    fun propBool(name: String): Boolean = React.jsToBool(getProp(props, name))
+    fun propBool(name: String): Boolean = React.jsToBool(React.getProperty(props, name))
 
     /** Read a raw JSObject prop by name */
-    fun propObj(name: String): JSObject = getProp(props, name)
+    fun propObj(name: String): JSObject = React.getProperty(props, name)
 
     // ====================================================================
     // Memo hook
@@ -81,11 +81,6 @@ class ComponentScope(@PublishedApi internal val props: JSObject) {
         return result as T
     }
 
-    companion object {
-        @org.teavm.jso.JSBody(params = ["obj", "key"], script = "return obj[key];")
-        @JvmStatic
-        private external fun getProp(obj: JSObject, key: String): JSObject
-    }
 }
 
 // ========================================================================
