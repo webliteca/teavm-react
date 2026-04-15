@@ -1,0 +1,60 @@
+name: Deploy Site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy Site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build teavm-react-core
+        run: |
+          mvn install -N -B -q
+          mvn install -pl teavm-react-core -B -q -DskipTests
+
+      - name: Build site
+        run: mvn process-classes -pl site -B
+
+      - name: Verify build output
+        run: |
+          test -f site/target/webapp/js/classes.js
+          test -f site/target/webapp/index.html
+          echo "classes.js: $(wc -c < site/target/webapp/js/classes.js) bytes"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/target/webapp
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
