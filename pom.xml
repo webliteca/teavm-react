@@ -41,6 +41,7 @@
         <module>teavm-react-kotlin</module>
         <module>teavm-react-demo</module>
         <module>teavm-react-archetype</module>
+        <module>teavm-react-kotlin-archetype</module>
         <module>site</module>
     </modules>
 
