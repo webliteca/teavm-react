@@ -4,6 +4,7 @@ import ca.weblite.teavmreact.core.ReactElement;
 import ca.weblite.teavmreact.docs.components.Callout;
 import ca.weblite.teavmreact.docs.components.CodeBlock;
 import ca.weblite.teavmreact.docs.components.CodeTabs;
+import ca.weblite.teavmreact.docs.components.ProjectInitializer;
 import org.teavm.jso.JSObject;
 
 import static ca.weblite.teavmreact.html.Html.*;
@@ -15,8 +16,13 @@ public class InstallationPage {
         return El.div("doc-page",
 
             h1("Installation"),
-            p("This guide walks you through setting up a new teavm-react project from scratch."),
+            p("The fastest way to get started is to generate a starter project. "
+              + "Or follow the manual setup instructions below."),
             hr(),
+            quickStartSection(),
+            hr(),
+            h2("Manual Setup"),
+            p("If you prefer to set things up yourself, follow the steps below."),
             prerequisitesSection(),
             hr(),
             mavenSetupSection(),
@@ -30,6 +36,24 @@ public class InstallationPage {
             buildingSection(),
             hr(),
             runningLocallySection()
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // 0. Quick Start — Project Generator
+    // -----------------------------------------------------------------------
+
+    private static ReactElement quickStartSection() {
+        return El.section("doc-section",
+
+            h2("Quick Start"),
+            p("Enter your project details below, then click Generate to download a "
+              + "ready-to-run Maven project. Unzip it, open it in your IDE, and run:"),
+            CodeBlock.create("mvn clean process-classes\ncd target/webapp\npython3 -m http.server 8080", "bash"),
+            ProjectInitializer.create(),
+            Callout.note("Prerequisites",
+                p("You will need JDK 21 or later, Maven 3.8+, and a modern web browser. "
+                  + "See the Prerequisites section below for details."))
         );
     }
 

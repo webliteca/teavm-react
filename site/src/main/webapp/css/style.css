@@ -376,6 +376,100 @@ img { max-width: 100%; }
 }
 .callout-deepdive .callout-title { color: var(--color-tip); }
 
+/* ===== Project Initializer ===== */
+.project-initializer {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    margin: 0 0 32px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+.pi-header {
+    background: linear-gradient(135deg, var(--color-primary), #1a9bc7);
+    padding: 28px 32px 20px;
+    color: white;
+}
+.pi-header h2 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: white;
+    border: none;
+    padding: 0;
+}
+.pi-header p {
+    margin: 0;
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.5;
+}
+.pi-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 28px 32px;
+}
+.pi-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.pi-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.pi-field input,
+.pi-field select {
+    padding: 10px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-family: var(--font-mono);
+    color: var(--color-text);
+    background: var(--color-bg);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pi-field input:focus,
+.pi-field select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(8, 126, 164, 0.12);
+}
+.pi-actions {
+    padding: 0 32px 24px;
+}
+.pi-generate-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 28px;
+    font-size: 16px;
+}
+.pi-summary {
+    background: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border);
+    padding: 12px 32px;
+}
+.pi-summary p {
+    margin: 0;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+@media (max-width: 768px) {
+    .pi-form {
+        grid-template-columns: 1fr;
+        padding: 20px;
+    }
+    .pi-header { padding: 20px; }
+    .pi-actions { padding: 0 20px 20px; }
+    .pi-summary { padding: 12px 20px; }
+}
+
 /* ===== Homepage ===== */
 .hero {
     text-align: center;
