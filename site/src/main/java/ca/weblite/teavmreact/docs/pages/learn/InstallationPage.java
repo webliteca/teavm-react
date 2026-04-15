@@ -66,7 +66,7 @@ public class InstallationPage {
     // -----------------------------------------------------------------------
 
     private static ReactElement archetypeSection() {
-        String archetypeCommand = """
+        String javaArchetypeCommand = """
                 mvn archetype:generate \\
                   -DarchetypeGroupId=ca.weblite \\
                   -DarchetypeArtifactId=teavm-react-archetype \\
@@ -74,6 +74,17 @@ public class InstallationPage {
                   -DgroupId=com.example \\
                   -DartifactId=my-teavm-react-app \\
                   -DjavaVersion=21 \\
+                  -DinteractiveMode=false""";
+
+        String kotlinArchetypeCommand = """
+                mvn archetype:generate \\
+                  -DarchetypeGroupId=ca.weblite \\
+                  -DarchetypeArtifactId=teavm-react-kotlin-archetype \\
+                  -DarchetypeVersion=0.1.0-SNAPSHOT \\
+                  -DgroupId=com.example \\
+                  -DartifactId=my-teavm-react-app \\
+                  -DjavaVersion=21 \\
+                  -DkotlinVersion=1.9.25 \\
                   -DinteractiveMode=false""";
 
         String runCommands = """
@@ -85,9 +96,10 @@ public class InstallationPage {
 
             h2("Maven Archetype"),
             p("You can also create a new project from the command line using the "
-              + "Maven archetype. This is useful for scripted setups or if you "
+              + "Maven archetype. Both Java and Kotlin archetypes are available. "
+              + "This is useful for scripted setups or if you "
               + "prefer not to use the web generator."),
-            CodeBlock.create(archetypeCommand, "bash"),
+            CodeTabs.create(javaArchetypeCommand, kotlinArchetypeCommand),
             p("This generates a complete project with the same structure as the "
               + "web generator above. To build and run it:"),
             CodeBlock.create(runCommands, "bash"),
@@ -95,7 +107,8 @@ public class InstallationPage {
                 ul(
                     li("groupId — your project's Maven group ID (e.g. com.example)"),
                     li("artifactId — the project name and directory (e.g. my-teavm-react-app)"),
-                    li("javaVersion — Java source/target version (default: 21, also supports 17)")
+                    li("javaVersion — Java source/target version (default: 21, also supports 17)"),
+                    li("kotlinVersion — Kotlin version (Kotlin archetype only, default: 1.9.25)")
                 )),
             Callout.note("Interactive Mode",
                 p("Omit -DinteractiveMode=false to be prompted for each property interactively."))
