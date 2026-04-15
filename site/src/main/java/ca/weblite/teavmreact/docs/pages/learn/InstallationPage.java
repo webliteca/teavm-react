@@ -322,9 +322,11 @@ import ca.weblite.teavmreact.docs.El;
               + "compiler to produce target/webapp/js/classes.js."),
             CodeBlock.create(fullBuildCommand, "bash"),
             Callout.note("Incremental Builds",
-                p("The TeaVM compiler recompiles all classes on each run. For faster "
-                  + "iteration during development, keep the terminal open and re-run "
-                  + "mvn process-classes after each change."))
+                p("The TeaVM Maven plugin supports incremental compilation via "
+                  + "the <incremental>true</incremental> option, which caches analysis "
+                  + "in target/teavm-cache/ and only re-analyzes changed bytecode. "
+                  + "The dev server (see below) activates this automatically through "
+                  + "the 'dev' Maven profile."))
         );
     }
 
@@ -344,6 +346,10 @@ import ca.weblite.teavmreact.docs.El;
                 # Or use the run.sh script if provided:
                 ./run.sh 8080""";
 
+        String devScript = """
+                # Start the dev server with live reload:
+                ./dev.sh 8080""";
+
         return El.section("doc-section",
 
             h2("Running Locally"),
@@ -354,11 +360,25 @@ import ca.weblite.teavmreact.docs.El;
             CodeBlock.create(runScript, "bash"),
             p("Open your browser to http://localhost:8080 and you should see your "
               + "application running."),
-            Callout.note("Hot Reload",
-                p("teavm-react does not include a built-in hot reload server. "
-                  + "Re-run mvn process-classes and refresh the browser after changes. "
-                  + "For a faster workflow, consider using a file-watching tool like "
-                  + "entr or a Maven watch plugin."))
+
+            h3("Dev Server with Hot Reload"),
+            p("teavm-react includes a live-reload dev server. Run dev.sh to start "
+              + "it:"),
+            CodeBlock.create(devScript, "bash"),
+            p("The dev server watches all src/ directories for changes to .java, "
+              + ".kt, .html, and .css files. When a change is detected, it "
+              + "automatically recompiles the affected modules and refreshes the "
+              + "browser via Server-Sent Events."),
+            Callout.note("Dev Server Features",
+                ul(
+                    li("Smart rebuild — only recompiles modules whose source changed"),
+                    li("Fast path — HTML/CSS-only changes are copied directly without Maven"),
+                    li("Incremental TeaVM — activates the 'dev' profile for cached, "
+                      + "incremental compilation"),
+                    li("Maven Daemon — auto-detects mvnd for faster JVM startup"),
+                    li("Compiling overlay — shows a visual indicator in the browser "
+                      + "while recompiling")
+                ))
         );
     }
 }
