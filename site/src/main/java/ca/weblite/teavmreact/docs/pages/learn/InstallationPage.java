@@ -70,7 +70,7 @@ public class InstallationPage {
                 mvn archetype:generate \\
                   -DarchetypeGroupId=ca.weblite \\
                   -DarchetypeArtifactId=teavm-react-archetype \\
-                  -DarchetypeVersion=0.1.0-SNAPSHOT \\
+                  -DarchetypeVersion=0.1.4 \\
                   -DgroupId=com.example \\
                   -DartifactId=my-teavm-react-app \\
                   -DjavaVersion=21 \\
@@ -80,7 +80,7 @@ public class InstallationPage {
                 mvn archetype:generate \\
                   -DarchetypeGroupId=ca.weblite \\
                   -DarchetypeArtifactId=teavm-react-kotlin-archetype \\
-                  -DarchetypeVersion=0.1.0-SNAPSHOT \\
+                  -DarchetypeVersion=0.1.4 \\
                   -DgroupId=com.example \\
                   -DartifactId=my-teavm-react-app \\
                   -DjavaVersion=21 \\
@@ -157,7 +157,7 @@ public class InstallationPage {
                         <maven.compiler.source>17</maven.compiler.source>
                         <maven.compiler.target>17</maven.compiler.target>
                         <teavm.version>0.13.1</teavm.version>
-                        <teavm-react.version>0.1.0-SNAPSHOT</teavm-react.version>
+                        <teavm-react.version>0.1.4</teavm-react.version>
                     </properties>
 
                     <dependencies>
