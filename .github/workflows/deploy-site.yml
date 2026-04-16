@@ -41,10 +41,18 @@ jobs:
       - name: Build site
         run: mvn process-classes -pl site -B
 
+      - name: Generate Javadocs
+        run: |
+          mvn javadoc:javadoc -pl teavm-react-core -B -q \
+            -Dquiet=true \
+            -Ddoclint=none
+          cp -r teavm-react-core/target/site/apidocs site/target/webapp/javadocs
+
       - name: Verify build output
         run: |
           test -f site/target/webapp/js/classes.js
           test -f site/target/webapp/index.html
+          test -f site/target/webapp/javadocs/index.html
           echo "classes.js: $(wc -c < site/target/webapp/js/classes.js) bytes"
 
       - name: Configure GitHub Pages

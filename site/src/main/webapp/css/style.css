@@ -630,6 +630,79 @@ img { max-width: 100%; }
     margin-left: 0;
 }
 
+/* ===== Sponsor Banner (Homepage) ===== */
+.sponsor-banner {
+    max-width: 680px;
+    margin: 0 auto 40px;
+    padding: 24px 32px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid #2a2a4a;
+    border-radius: var(--radius-lg);
+    text-align: center;
+}
+.sponsor-banner p {
+    margin: 0 0 16px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    line-height: 1.5;
+}
+.sponsor-btn {
+    font-size: 15px;
+    padding: 10px 24px;
+}
+
+/* ===== External Sidebar Links ===== */
+.sidebar-link-external::after {
+    content: " \2197";
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+/* ===== Credits Page ===== */
+.credits-card {
+    padding: 24px 28px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    margin: 16px 0 0;
+}
+.credits-card h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+.credits-card p {
+    margin: 0 0 16px;
+    color: var(--color-text-secondary);
+}
+.credits-links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.credits-link {
+    font-size: 14px;
+    padding: 8px 18px;
+}
+.credits-sponsor {
+    padding: 28px;
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    text-align: center;
+    margin-top: 16px;
+}
+.credits-sponsor p {
+    margin: 0 0 16px;
+    font-size: 16px;
+    color: var(--color-text);
+}
+.credits-sponsor-btn {
+    font-size: 16px;
+    padding: 12px 28px;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
     .hamburger { display: block; }

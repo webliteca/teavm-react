@@ -17,6 +17,7 @@ public class HomePage {
     public static ReactElement render(JSObject props) {
         return Div.create().className("home-page")
             .child(heroSection())
+            .child(sponsorBanner())
             .child(featureGrid())
             .child(codePreviewSection())
             .build();
@@ -35,6 +36,18 @@ public class HomePage {
                     .className("hero-btn hero-btn-secondary")
                     .href("#/reference/hooks-overview")
                     .build())
+                .build())
+            .build();
+    }
+
+    private static ReactElement sponsorBanner() {
+        return Div.create().className("sponsor-banner")
+            .child(p("teavm-react is powered by TeaVM. If you use this project, please consider becoming a sponsor."))
+            .child(a("Sponsor TeaVM")
+                .className("btn btn-primary sponsor-btn")
+                .href("https://github.com/sponsors/konsoletyper")
+                .prop("target", "_blank")
+                .prop("rel", "noopener noreferrer")
                 .build())
             .build();
     }
