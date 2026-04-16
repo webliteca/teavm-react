@@ -41,7 +41,7 @@ public class Sidebar {
                 link("Components", "reference/components", currentPath, onClose),
                 link("Events", "reference/events", currentPath, onClose),
                 externalLink("Javadocs", "javadocs/index.html"),
-                externalLink("Developer Guide", "https://github.com/webliteca/teavm-react/blob/main/docs/developer-guide.adoc")
+                externalLink("Developer Guide", "developer-guide/index.html")
             ))
             .build();
     }
