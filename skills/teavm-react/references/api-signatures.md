@@ -32,6 +32,7 @@
 -     public static native JSObject wrapComponent(RenderFunction renderFn)
 -     public static native JSObject wrapComponent(RenderFunction renderFn, String name)
 -     public static native JSObject createObject()
+-     public static native JSObject getProperty(JSObject obj, String key)
 -     public static native void setProperty(JSObject obj, String key, JSObject value)
 -     public static native void setProperty(JSObject obj, String key, String value)
 -     public static native void setProperty(JSObject obj, String key, int value)
