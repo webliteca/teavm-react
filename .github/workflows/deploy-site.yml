@@ -46,7 +46,7 @@ jobs:
           mvn javadoc:javadoc -pl teavm-react-core -B -q \
             -Dquiet=true \
             -Ddoclint=none
-          cp -r teavm-react-core/target/site/apidocs site/target/webapp/javadocs
+          cp -r teavm-react-core/target/reports/apidocs site/target/webapp/javadocs
 
       - name: Verify build output
         run: |
