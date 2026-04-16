@@ -18,7 +18,7 @@ public class ProjectInitializer {
 
     // -- JS interop for ZIP generation and download ----------------------------
 
-    @JSBody(params = {"groupId", "artifactId", "packageName", "javaVersion"},
+    @JSBody(params = {"groupId", "artifactId", "packageName", "javaVersion", "teavmReactVersion"},
             script =
         "var zip = new JSZip();" +
         "var pkgPath = packageName.replace(/\\./g, '/');" +
@@ -38,7 +38,7 @@ public class ProjectInitializer {
         " + '        <maven.compiler.source>' + javaVersion + '</maven.compiler.source>\\n'" +
         " + '        <maven.compiler.target>' + javaVersion + '</maven.compiler.target>\\n'" +
         " + '        <teavm.version>0.13.1</teavm.version>\\n'" +
-        " + '        <teavm-react.version>0.1.0-SNAPSHOT</teavm-react.version>\\n'" +
+        " + '        <teavm-react.version>' + teavmReactVersion + '</teavm-react.version>\\n'" +
         " + '    </properties>\\n\\n'" +
         " + '    <dependencies>\\n'" +
         " + '        <dependency>\\n'" +
@@ -195,9 +195,10 @@ public class ProjectInitializer {
         "});"
     )
     private static native void generateJavaProject(
-            String groupId, String artifactId, String packageName, String javaVersion);
+            String groupId, String artifactId, String packageName,
+            String javaVersion, String teavmReactVersion);
 
-    @JSBody(params = {"groupId", "artifactId", "packageName", "javaVersion", "kotlinVersion"},
+    @JSBody(params = {"groupId", "artifactId", "packageName", "javaVersion", "kotlinVersion", "teavmReactVersion"},
             script =
         "var zip = new JSZip();" +
         "var pkgPath = packageName.replace(/\\./g, '/');" +
@@ -218,7 +219,7 @@ public class ProjectInitializer {
         " + '        <maven.compiler.target>' + javaVersion + '</maven.compiler.target>\\n'" +
         " + '        <kotlin.version>' + kotlinVersion + '</kotlin.version>\\n'" +
         " + '        <teavm.version>0.13.1</teavm.version>\\n'" +
-        " + '        <teavm-react.version>0.1.0-SNAPSHOT</teavm-react.version>\\n'" +
+        " + '        <teavm-react.version>' + teavmReactVersion + '</teavm-react.version>\\n'" +
         " + '    </properties>\\n\\n'" +
         " + '    <dependencies>\\n'" +
         " + '        <dependency>\\n'" +
@@ -396,13 +397,17 @@ public class ProjectInitializer {
     )
     private static native void generateKotlinProject(
             String groupId, String artifactId, String packageName,
-            String javaVersion, String kotlinVersion);
+            String javaVersion, String kotlinVersion, String teavmReactVersion);
 
     // -- Component factory -----------------------------------------------------
 
     public static ReactElement create() {
         return component(ProjectInitializer::render, "ProjectInitializer");
     }
+
+    // -- Configuration ---------------------------------------------------------
+
+    private static final String TEAVM_REACT_VERSION = "0.1.5";
 
     // -- Render ----------------------------------------------------------------
 
@@ -488,14 +493,16 @@ public class ProjectInitializer {
                                 groupId.getString(),
                                 artifactId.getString(),
                                 packageName.getString(),
-                                javaVersion.getString());
+                                javaVersion.getString(),
+                                TEAVM_REACT_VERSION);
                         } else {
                             generateKotlinProject(
                                 groupId.getString(),
                                 artifactId.getString(),
                                 packageName.getString(),
                                 javaVersion.getString(),
-                                "1.9.25");
+                                "1.9.25",
+                                TEAVM_REACT_VERSION);
                         }
                     })))
 

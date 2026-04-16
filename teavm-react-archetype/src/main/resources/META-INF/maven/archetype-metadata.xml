@@ -10,6 +10,9 @@
         <requiredProperty key="javaVersion">
             <defaultValue>21</defaultValue>
         </requiredProperty>
+        <requiredProperty key="teavmReactVersion">
+            <defaultValue>0.1.5</defaultValue>
+        </requiredProperty>
     </requiredProperties>
 
     <fileSets>
