@@ -48,11 +48,20 @@ jobs:
             -Ddoclint=none
           cp -r teavm-react-core/target/reports/apidocs site/target/webapp/javadocs
 
+      - name: Build Developer Guide
+        run: |
+          sudo apt-get install -y -qq asciidoctor > /dev/null 2>&1
+          mkdir -p site/target/webapp/developer-guide
+          asciidoctor -D site/target/webapp/developer-guide \
+            -o index.html \
+            docs/developer-guide.adoc
+
       - name: Verify build output
         run: |
           test -f site/target/webapp/js/classes.js
           test -f site/target/webapp/index.html
           test -f site/target/webapp/javadocs/index.html
+          test -f site/target/webapp/developer-guide/index.html
           echo "classes.js: $(wc -c < site/target/webapp/js/classes.js) bytes"
 
       - name: Configure GitHub Pages
