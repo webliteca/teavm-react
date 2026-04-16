@@ -407,7 +407,7 @@ public class ProjectInitializer {
 
     // -- Configuration ---------------------------------------------------------
 
-    private static final String TEAVM_REACT_VERSION = "0.1.4";
+    private static final String TEAVM_REACT_VERSION = "0.1.5";
 
     // -- Render ----------------------------------------------------------------
 

@@ -14,7 +14,7 @@
             <defaultValue>1.9.25</defaultValue>
         </requiredProperty>
         <requiredProperty key="teavmReactVersion">
-            <defaultValue>0.1.4</defaultValue>
+            <defaultValue>0.1.5</defaultValue>
         </requiredProperty>
     </requiredProperties>
 
