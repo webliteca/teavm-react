@@ -27,7 +27,8 @@ public class Sidebar {
                 link("Reducers", "learn/reducers", currentPath, onClose),
                 link("Context", "learn/context", currentPath, onClose),
                 link("Refs", "learn/refs", currentPath, onClose),
-                link("Effects", "learn/effects", currentPath, onClose)
+                link("Effects", "learn/effects", currentPath, onClose),
+                link("AI Skills", "learn/ai-skills", currentPath, onClose)
             ))
             .child(sidebarSection("Reference",
                 link("Hooks Overview", "reference/hooks-overview", currentPath, onClose),

@@ -37,9 +37,7 @@ public class InstallationPage {
             hr(),
             buildingSection(),
             hr(),
-            runningLocallySection(),
-            hr(),
-            skillsSection()
+            runningLocallySection()
         );
     }
 
@@ -440,64 +438,4 @@ import ca.weblite.teavmreact.docs.El;
         );
     }
 
-    // -----------------------------------------------------------------------
-    // 8. AI Skills
-    // -----------------------------------------------------------------------
-
-    private static ReactElement skillsSection() {
-        String installCommand = """
-                mvn ca.weblite:skills-jar-plugin:install""";
-
-        String listCommand = """
-                mvn ca.weblite:skills-jar-plugin:list""";
-
-        String pomPlugin = """
-                <build>
-                    <plugins>
-                        <plugin>
-                            <groupId>ca.weblite</groupId>
-                            <artifactId>skills-jar-plugin</artifactId>
-                            <version>0.1.2</version>
-                        </plugin>
-                    </plugins>
-                </build>""";
-
-        return El.section("doc-section",
-
-            h2("AI Skills"),
-            p("teavm-react publishes AI assistant skills that provide your IDE's AI "
-              + "tools (such as Claude Code or Cursor) with library-specific guidance, "
-              + "API signatures, and usage patterns. Skills are distributed as Maven "
-              + "artifacts alongside the library JARs."),
-
-            h3("Installing Skills"),
-            p("Run the following command in your project directory to install skills "
-              + "for all dependencies that publish them:"),
-            CodeBlock.create(installCommand, "bash"),
-            p("This resolves -skills.jar artifacts for each dependency in your project "
-              + "and extracts them into .claude/skills/ in your project root. The "
-              + "installed skills are automatically picked up by Claude Code and other "
-              + "compatible AI tools."),
-
-            h3("Listing Available Skills"),
-            p("To see which of your dependencies provide skills without installing them:"),
-            CodeBlock.create(listCommand, "bash"),
-
-            h3("Adding the Plugin to Your POM"),
-            p("For convenience, you can add the skills-jar-plugin to your pom.xml so "
-              + "that skill installation is available as a standard Maven goal:"),
-            CodeBlock.create(pomPlugin, "xml"),
-
-            Callout.note("What Gets Installed",
-                ul(
-                    li("SKILL.md — the main skill file with API guidance and rules"),
-                    li("references/ — detailed API signatures and usage patterns"),
-                    li("assets/examples/ — complete working examples you can reference")
-                )),
-            Callout.note("Version Tracking",
-                p("The plugin maintains a .skill-manifest.json file to track installed "
-                  + "skills. Re-running the install command only updates skills whose "
-                  + "upstream version has changed."))
-        );
-    }
 }
