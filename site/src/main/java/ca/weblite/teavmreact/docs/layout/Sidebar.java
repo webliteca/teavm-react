@@ -28,7 +28,8 @@ public class Sidebar {
                 link("Context", "learn/context", currentPath, onClose),
                 link("Refs", "learn/refs", currentPath, onClose),
                 link("Effects", "learn/effects", currentPath, onClose),
-                link("AI Skills", "learn/ai-skills", currentPath, onClose)
+                link("AI Skills", "learn/ai-skills", currentPath, onClose),
+                link("Credits", "learn/credits", currentPath, onClose)
             ))
             .child(sidebarSection("Reference",
                 link("Hooks Overview", "reference/hooks-overview", currentPath, onClose),
@@ -38,7 +39,9 @@ public class Sidebar {
                 link("useContext", "reference/use-context", currentPath, onClose),
                 link("HTML DSL", "reference/html-dsl", currentPath, onClose),
                 link("Components", "reference/components", currentPath, onClose),
-                link("Events", "reference/events", currentPath, onClose)
+                link("Events", "reference/events", currentPath, onClose),
+                externalLink("Javadocs", "javadocs/index.html"),
+                externalLink("Developer Guide", "https://github.com/webliteca/teavm-react/blob/main/docs/developer-guide.adoc")
             ))
             .build();
     }
@@ -58,6 +61,16 @@ public class Sidebar {
             .href("#/" + path)
             .className("sidebar-link" + (active ? " active" : ""))
             .onClick(e -> onClose.run())
+            .text(label)
+            .build();
+    }
+
+    private static ReactElement externalLink(String label, String url) {
+        return A.create()
+            .href(url)
+            .className("sidebar-link sidebar-link-external")
+            .prop("target", "_blank")
+            .prop("rel", "noopener noreferrer")
             .text(label)
             .build();
     }

@@ -27,6 +27,7 @@ public class App {
         new Route("learn/refs", RefsPage::render),
         new Route("learn/effects", EffectsPage::render),
         new Route("learn/ai-skills", AISkillsPage::render),
+        new Route("learn/credits", CreditsPage::render),
 
         // Reference section
         new Route("reference/hooks-overview", HooksOverviewPage::render),
